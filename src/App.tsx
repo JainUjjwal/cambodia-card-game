@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router-dom';
 import LandingPage from './components/pages/LandingPage';
 import LobbyPage from './components/pages/LobbyPage';
 import GamePage from './components/pages/GamePage';
+import GameEndScreen from './components/pages/GameEndScreen';
 
 function App() {
   return (
@@ -10,6 +11,7 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/lobby/:gameId" element={<LobbyPage />} />
         <Route path="/game/:gameId" element={<GamePage />} />
+        <Route path="/end" element={<GameEndScreen />} />
       </Routes>
     </div>
   )
