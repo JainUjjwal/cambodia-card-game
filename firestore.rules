@@ -2,7 +2,15 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // By default, deny all reads and writes
+    
+    // Allow any authenticated user to create a new game document,
+    // as long as they set themselves as the host.
+    match /games/{gameId} {
+      allow create: if request.auth != null 
+                    && request.resource.data.hostId == request.auth.uid;
+    }
+
+    // By default, deny all other reads and writes
     match /{document=**} {
       allow read, write: if false;
     }
