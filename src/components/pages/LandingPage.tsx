@@ -9,29 +9,46 @@ const LandingPage = () => {
   const { currentUser } = useAuth();
   const [isCreating, setIsCreating] = useState(false);
 
+  const generateShortId = () => {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+  };
+
   const handleCreateGame = async () => {
     if (!currentUser || isCreating) return;
 
     setIsCreating(true);
+    const shortId = generateShortId();
     try {
-      const newGameRef = await addDoc(collection(db, 'games'), {
+      // We now save the shortId to the document
+      await addDoc(collection(db, 'games'), {
         hostId: currentUser.uid,
+        shortId: shortId,
         status: 'waiting',
         createdAt: serverTimestamp(),
         playOrder: [currentUser.uid],
         players: {
           [currentUser.uid]: {
-            name: `Player 1`, // Placeholder name
+            name: `Player 1`,
             score: 0,
             isReady: true,
           }
         }
       });
-      navigate(`/lobby/${newGameRef.id}`);
+      // Navigate using the new shortId
+      navigate(`/lobby/${shortId}`);
     } catch (error) {
       console.error("Error creating game:", error);
       alert("Failed to create game. Please try again.");
       setIsCreating(false);
+    }
+  };
+
+  const handleJoinGame = () => {
+    const gameId = prompt("Please enter the 6-character Game Code:");
+    if (gameId && gameId.trim().length === 6) {
+      navigate(`/lobby/${gameId.trim().toUpperCase()}`);
+    } else if (gameId) {
+      alert("Invalid Game Code. Please enter the 6-character code.");
     }
   };
 
@@ -54,7 +71,9 @@ const LandingPage = () => {
         >
           {isCreating ? 'Creating...' : 'Create Game'}
         </button>
-        <button className="w-full bg-cyan-800 bg-opacity-75 text-white font-bold py-3 px-4 rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-200 ease-in-out">
+        <button 
+          onClick={handleJoinGame}
+          className="w-full bg-cyan-800 bg-opacity-75 text-white font-bold py-3 px-4 rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-200 ease-in-out">
           Join Game
         </button>
         <button className="w-full border-2 border-cyan-200 text-cyan-100 font-bold py-3 px-4 rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-200 ease-in-out">
