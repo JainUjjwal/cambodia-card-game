@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDocs, updateDoc, collection, query, where, onSnapshot, type DocumentData } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../context/AuthContext';
-import { Book, Copy, User, CheckCircle, Clock } from 'lucide-react';
+import { Book, Copy, User, CheckCircle, Clock, Edit2 } from 'lucide-react';
 
 const LobbyPage = () => {
   const { gameId: shortId } = useParams<{ gameId: string }>();
@@ -11,8 +11,10 @@ const LobbyPage = () => {
   const { currentUser } = useAuth();
   
   const [gameData, setGameData] = useState<DocumentData | null>(null);
+  const [gameDocId, setGameDocId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isCopied, setIsCopied] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
 
   useEffect(() => {
     if (!currentUser || !shortId) return;
@@ -27,6 +29,7 @@ const LobbyPage = () => {
       }
       
       const gameDoc = querySnapshot.docs[0];
+      setGameDocId(gameDoc.id); // Set the full document ID
       const game = gameDoc.data();
       setGameData(game);
 
@@ -66,6 +69,25 @@ const LobbyPage = () => {
         setIsCopied(true);
         setTimeout(() => setIsCopied(false), 2000);
       });
+    }
+  };
+
+  const handleNameChange = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && gameDocId && currentUser) {
+      const newName = (e.target as HTMLInputElement).value.trim();
+      if (newName && newName.length > 0 && newName.length <= 15) {
+        const nameKey = `players.${currentUser.uid}.name`;
+        const gameRef = doc(db, 'games', gameDocId);
+        try {
+          await updateDoc(gameRef, { [nameKey]: newName });
+        } catch (error) {
+          console.error("Error updating name: ", error);
+        } finally {
+          setIsEditingName(false);
+        }
+      } else {
+        alert("Name must be between 1 and 15 characters.");
+      }
     }
   };
 
@@ -109,7 +131,21 @@ const LobbyPage = () => {
             <div key={player.id} className="flex items-center justify-between bg-slate-800 p-3 rounded-lg">
               <div className="flex items-center gap-3">
                 <User className="text-slate-400" size={20} />
-                <span className="font-medium">{player.name}{currentUser?.uid === player.id && ' (You)'}{player.id === gameData.hostId && ' (Host)'}</span>
+                {isEditingName && currentUser?.uid === player.id ? (
+                  <input
+                    type="text"
+                    defaultValue={player.name}
+                    onKeyDown={handleNameChange}
+                    onBlur={() => setIsEditingName(false)}
+                    autoFocus
+                    className="bg-slate-600 text-white p-1 rounded"
+                  />
+                ) : (
+                  <span className="font-medium">{player.name}{currentUser?.uid === player.id && ' (You)'}{player.id === gameData.hostId && ' (Host)'}</span>
+                )}
+                {currentUser?.uid === player.id && !isEditingName && (
+                  <button onClick={() => setIsEditingName(true)}><Edit2 size={14} className="text-slate-400 hover:text-white" /></button>
+                )}
               </div>
               {player.isReady ? <div className="flex items-center gap-2 text-green-400"><CheckCircle size={20} /><span>Ready</span></div> : <div className="flex items-center gap-2 text-yellow-400"><Clock size={20} /><span>Waiting...</span></div>}
             </div>

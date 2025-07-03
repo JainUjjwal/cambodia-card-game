@@ -18,11 +18,21 @@ service cloud.firestore {
       allow create: if request.auth != null && 
                      request.resource.data.hostId == request.auth.uid;
 
-      // Allow a player to join a game.
-      allow update: if request.auth != null &&
-                     resource.data.status == 'waiting' &&
-                     !(request.auth.uid in resource.data.players) &&
-                     request.resource.data.players.size() < 6;
+      // Allow a player to update a game document.
+      allow update: if request.auth != null && (
+        // Condition to JOIN a game
+        (
+          resource.data.status == 'waiting' &&
+          !(request.auth.uid in resource.data.players) &&
+          request.resource.data.players.size() < 6
+        ) ||
+        // Condition to UPDATE OWN NAME
+        (
+          request.auth.uid in resource.data.players &&
+          request.resource.data.players[request.auth.uid].name != resource.data.players[request.auth.uid].name &&
+          request.resource.data.players.size() == resource.data.players.size() // Ensure no other players are added/removed
+        )
+      );
     }
   }
 }
