@@ -3,7 +3,7 @@ import { Eye } from 'lucide-react';
 
 type CardProps = {
   value?: string;
-  suit?: '♠' | '♥' | '♦' | '♣';
+  suit?: '♠' | '♥' | '♦' | '♣' | 'Joker';
   isFaceUp?: boolean;
   isKnown?: boolean;
   className?: string;

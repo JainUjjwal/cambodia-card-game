@@ -4,6 +4,7 @@ import { collection, query, where, onSnapshot, type DocumentData, doc, updateDoc
 import { db } from '../../firebase';
 import { useAuth } from '../../context/AuthContext';
 import GameTable from '../game/GameTable';
+import { type CardData } from '../../utils/deck';
 
 const GamePage = () => {
   const { gameId: shortId } = useParams<{ gameId: string }>();
@@ -15,6 +16,10 @@ const GamePage = () => {
   const [error, setError] = useState<string | null>(null);
   const [knownCards, setKnownCards] = useState([false, false, false, false]);
   const [showInitialPeek, setShowInitialPeek] = useState(false);
+  
+  // New state for the draw card action
+  const [drawnCard, setDrawnCard] = useState<CardData | null>(null);
+  const [showDrawCardModal, setShowDrawCardModal] = useState(false);
 
   useEffect(() => {
     if (!currentUser || !shortId) return;
@@ -59,6 +64,18 @@ const GamePage = () => {
     setShowInitialPeek(false);
   };
 
+  const handleDrawCard = () => {
+    if (!gameData || gameData.deck.length === 0) return;
+    const topCard = gameData.deck[0];
+    setDrawnCard(topCard);
+    setShowDrawCardModal(true);
+  };
+
+  // Placeholder functions for modal actions - we will implement these later
+  const handleSwap = () => console.log("Swap action initiated");
+  const handleUseAction = () => console.log("Use action initiated");
+  const handleDiscard = () => console.log("Discard action initiated");
+
   if (error) return <div className="text-red-500 text-center p-8">{error}</div>;
   if (!gameData) return <div className="text-center p-8">Loading Game...</div>;
 
@@ -69,6 +86,12 @@ const GamePage = () => {
       knownCards={knownCards}
       onAcknowledgePeek={handleAcknowledgePeek}
       showInitialPeek={showInitialPeek}
+      onDrawCard={handleDrawCard}
+      drawnCard={drawnCard}
+      showDrawCardModal={showDrawCardModal}
+      onSwap={handleSwap}
+      onUseAction={handleUseAction}
+      onDiscard={handleDiscard}
     />
   );
 };
