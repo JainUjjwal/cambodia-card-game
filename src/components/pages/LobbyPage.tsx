@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, getDocs, updateDoc, collection, query, where, onSnapshot, type DocumentData } from 'firebase/firestore';
+import { doc, updateDoc, collection, query, where, onSnapshot, type DocumentData } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../context/AuthContext';
+import { createDeck, shuffleDeck } from '../../utils/deck';
 import { Book, Copy, User, CheckCircle, Clock, Edit2 } from 'lucide-react';
 
 const LobbyPage = () => {
@@ -32,6 +33,11 @@ const LobbyPage = () => {
       setGameDocId(gameDoc.id);
       const game = gameDoc.data();
       setGameData(game);
+      
+      // If game has started, navigate to game page
+      if (game.status === 'in-progress') {
+        navigate(`/game/${shortId}`);
+      }
 
       const playerIds = Object.keys(game.players);
       const isPlayerInGame = playerIds.includes(currentUser.uid);
@@ -63,6 +69,27 @@ const LobbyPage = () => {
 
   }, [currentUser, shortId, navigate]);
 
+  const handleStartGame = async () => {
+    if (!gameDocId || !gameData) return;
+
+    const deck = shuffleDeck(createDeck());
+    const playersUpdate: { [key: string]: any } = {};
+    
+    gameData.playOrder.forEach((playerId: string) => {
+      playersUpdate[`players.${playerId}.hand`] = deck.splice(0, 4);
+    });
+
+    const discardPile = deck.splice(0, 1);
+
+    await updateDoc(doc(db, 'games', gameDocId), {
+      ...playersUpdate,
+      deck: deck,
+      discardPile: discardPile,
+      status: 'in-progress',
+      currentPlayerId: gameData.playOrder[0],
+    });
+  };
+
   const handleCopy = () => {
     if (shortId) {
       navigator.clipboard.writeText(shortId.toUpperCase()).then(() => {
@@ -78,13 +105,8 @@ const LobbyPage = () => {
       if (newName && newName.length > 0 && newName.length <= 15) {
         const nameKey = `players.${currentUser.uid}.name`;
         const gameRef = doc(db, 'games', gameDocId);
-        try {
-          await updateDoc(gameRef, { [nameKey]: newName });
-        } catch (error) {
-          console.error("Error updating name: ", error);
-        } finally {
-          setIsEditingName(false);
-        }
+        await updateDoc(gameRef, { [nameKey]: newName });
+        setIsEditingName(false);
       } else {
         alert("Name must be between 1 and 15 characters.");
       }
@@ -174,6 +196,7 @@ const LobbyPage = () => {
 
         <div className="mt-8">
           <button 
+            onClick={handleStartGame}
             disabled={!amIHost || !allPlayersReady}
             className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-200 ease-in-out disabled:bg-slate-600 disabled:text-slate-400 disabled:cursor-not-allowed disabled:transform-none"
           >
