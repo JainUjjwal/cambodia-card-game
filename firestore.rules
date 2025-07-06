@@ -30,7 +30,13 @@ service cloud.firestore {
         (
           request.auth.uid in resource.data.players &&
           request.resource.data.players[request.auth.uid].name != resource.data.players[request.auth.uid].name &&
-          request.resource.data.players.size() == resource.data.players.size() // Ensure no other players are added/removed
+          request.resource.data.players.size() == resource.data.players.size()
+        ) ||
+        // Condition to UPDATE OWN READY STATUS
+        (
+          request.auth.uid in resource.data.players &&
+          request.resource.data.players[request.auth.uid].isReady != resource.data.players[request.auth.uid].isReady &&
+          request.resource.data.players.size() == resource.data.players.size()
         )
       );
     }

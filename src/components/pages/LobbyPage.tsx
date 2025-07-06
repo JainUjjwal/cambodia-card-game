@@ -29,7 +29,7 @@ const LobbyPage = () => {
       }
       
       const gameDoc = querySnapshot.docs[0];
-      setGameDocId(gameDoc.id); // Set the full document ID
+      setGameDocId(gameDoc.id);
       const game = gameDoc.data();
       setGameData(game);
 
@@ -91,11 +91,21 @@ const LobbyPage = () => {
     }
   };
 
+  const handleToggleReady = async () => {
+    if (gameDocId && currentUser && gameData) {
+      const currentReadyStatus = gameData.players[currentUser.uid].isReady;
+      const readyKey = `players.${currentUser.uid}.isReady`;
+      const gameRef = doc(db, 'games', gameDocId);
+      await updateDoc(gameRef, { [readyKey]: !currentReadyStatus });
+    }
+  };
+
   if (error) return <div className="text-red-500 text-center p-8">{error}</div>;
   if (!gameData) return <div className="text-center p-8">Finding Lobby...</div>;
 
   const players = Object.entries(gameData.players).map(([id, data]: [string, any]) => ({ id, ...data }));
   const amIHost = currentUser?.uid === gameData.hostId;
+  const allPlayersReady = players.every(p => p.isReady);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-slate-800 to-slate-900 p-4 text-white">
@@ -147,13 +157,26 @@ const LobbyPage = () => {
                   <button onClick={() => setIsEditingName(true)}><Edit2 size={14} className="text-slate-400 hover:text-white" /></button>
                 )}
               </div>
-              {player.isReady ? <div className="flex items-center gap-2 text-green-400"><CheckCircle size={20} /><span>Ready</span></div> : <div className="flex items-center gap-2 text-yellow-400"><Clock size={20} /><span>Waiting...</span></div>}
+              
+              <button 
+                onClick={currentUser?.uid === player.id ? handleToggleReady : undefined} 
+                disabled={currentUser?.uid !== player.id}
+                className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm ${currentUser?.uid === player.id ? 'cursor-pointer' : 'cursor-default'}`}
+              >
+                {player.isReady ? 
+                  <><CheckCircle size={16} className="text-green-400" /><span>Ready</span></> : 
+                  <><Clock size={16} className="text-yellow-400" /><span>Waiting...</span></>
+                }
+              </button>
             </div>
           ))}
         </div>
 
         <div className="mt-8">
-          <button className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-200 ease-in-out disabled:bg-slate-600 disabled:cursor-not-allowed disabled:transform-none">
+          <button 
+            disabled={!amIHost || !allPlayersReady}
+            className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-200 ease-in-out disabled:bg-slate-600 disabled:text-slate-400 disabled:cursor-not-allowed disabled:transform-none"
+          >
             Start Game
           </button>
           <p className="text-center text-xs text-slate-400 mt-2">Only the host can start the game when all players are ready.</p>
