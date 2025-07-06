@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { collection, query, where, onSnapshot, type DocumentData, doc, updateDoc, arrayRemove, arrayUnion } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, type DocumentData, doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../context/AuthContext';
 import GameTable from '../game/GameTable';
@@ -16,13 +16,16 @@ const GamePage = () => {
   const [error, setError] = useState<string | null>(null);
   const [knownCards, setKnownCards] = useState([false, false, false, false]);
   const [showInitialPeek, setShowInitialPeek] = useState(false);
-  
   const [drawnCard, setDrawnCard] = useState<CardData | null>(null);
   const [showDrawCardModal, setShowDrawCardModal] = useState(false);
-
-  // New state to manage the swapping process
   const [isSwapping, setIsSwapping] = useState(false);
   const [cardToSwap, setCardToSwap] = useState<CardData | null>(null);
+
+  // New state for the Peek action
+  const [isPeeking, setIsPeeking] = useState(false);
+  const [peekedCard, setPeekedCard] = useState<CardData | null>(null);
+  const [showPeekResultModal, setShowPeekResultModal] = useState(false);
+
 
   useEffect(() => {
     // ... (existing useEffect logic remains the same)
@@ -54,7 +57,7 @@ const GamePage = () => {
   };
 
   const advanceTurn = () => {
-    if (!gameData) return;
+    if (!gameData) return null;
     const { playOrder, currentPlayerId } = gameData;
     const currentIndex = playOrder.indexOf(currentPlayerId);
     const nextIndex = (currentIndex + 1) % playOrder.length;
@@ -84,33 +87,16 @@ const GamePage = () => {
 
   const handleSelectCardToSwap = async (cardIndex: number) => {
     if (!gameDocId || !currentUser || !cardToSwap || !gameData) return;
-
     const gameRef = doc(db, 'games', gameDocId);
     const myPlayer = gameData.players[currentUser.uid];
     const newHand = [...myPlayer.hand];
     const discardedCard = newHand[cardIndex];
     newHand[cardIndex] = cardToSwap;
-
     const newKnownCards = [...knownCards];
-    newKnownCards[cardIndex] = true; // You always know the card you just swapped in
-
-    // Determine if the card came from the deck or discard pile
+    newKnownCards[cardIndex] = true;
     const fromDeck = gameData.deck.some((c: CardData) => c.value === cardToSwap.value && c.suit === cardToSwap.suit);
-    
-    let deckUpdate = {};
-    if (fromDeck) {
-      deckUpdate = { deck: gameData.deck.slice(1) };
-    } else {
-      deckUpdate = { discardPile: gameData.discardPile.slice(0, -1) };
-    }
-
-    await updateDoc(gameRef, {
-      ...deckUpdate,
-      discardPile: arrayUnion(discardedCard),
-      [`players.${currentUser.uid}.hand`]: newHand,
-      currentPlayerId: advanceTurn(),
-    });
-
+    let deckUpdate = fromDeck ? { deck: gameData.deck.slice(1) } : { discardPile: gameData.discardPile.slice(0, -1) };
+    await updateDoc(gameRef, { ...deckUpdate, discardPile: arrayUnion(discardedCard), [`players.${currentUser.uid}.hand`]: newHand, currentPlayerId: advanceTurn() });
     setKnownCards(newKnownCards);
     setIsSwapping(false);
     setCardToSwap(null);
@@ -119,16 +105,34 @@ const GamePage = () => {
 
   const handleDiscardDrawnCard = async () => {
     if (!gameDocId || !drawnCard || !gameData) return;
-    const gameRef = doc(db, 'games', gameDocId);
-    
-    await updateDoc(gameRef, {
-      deck: gameData.deck.slice(1),
-      discardPile: arrayUnion(drawnCard),
-      currentPlayerId: advanceTurn(),
-    });
-
+    await updateDoc(doc(db, 'games', gameDocId), { deck: gameData.deck.slice(1), discardPile: arrayUnion(drawnCard), currentPlayerId: advanceTurn() });
     setShowDrawCardModal(false);
     setDrawnCard(null);
+  };
+  
+  const handleInitiatePeek = () => {
+    setIsPeeking(true);
+    setShowDrawCardModal(false);
+  };
+
+  const handleSelectCardToPeek = (cardIndex: number) => {
+    if (!gameData || !currentUser) return;
+    const myHand = gameData.players[currentUser.uid].hand;
+    const card = myHand[cardIndex];
+    setPeekedCard(card);
+    setShowPeekResultModal(true);
+    const newKnownCards = [...knownCards];
+    newKnownCards[cardIndex] = true;
+    setKnownCards(newKnownCards);
+  };
+
+  const handleAcknowledgePeekResult = async () => {
+    if (!gameDocId || !drawnCard || !gameData) return;
+    await updateDoc(doc(db, 'games', gameDocId), { deck: gameData.deck.slice(1), discardPile: arrayUnion(drawnCard), currentPlayerId: advanceTurn() });
+    setShowPeekResultModal(false);
+    setPeekedCard(null);
+    setDrawnCard(null);
+    setIsPeeking(false);
   };
 
   if (error) return <div className="text-red-500 text-center p-8">{error}</div>;
@@ -140,15 +144,21 @@ const GamePage = () => {
       myPlayerId={currentUser?.uid || ''}
       knownCards={knownCards}
       isSwapping={isSwapping}
+      isPeeking={isPeeking}
       onAcknowledgePeek={handleAcknowledgePeek}
       showInitialPeek={showInitialPeek}
       onDrawCard={handleDrawCard}
       drawnCard={drawnCard}
       showDrawCardModal={showDrawCardModal}
       onSwap={handleInitiateSwap}
+      onUseAction={handleInitiatePeek} // Changed from placeholder
       onDiscard={handleDiscardDrawnCard}
       onSelectCardToSwap={handleSelectCardToSwap}
       onTakeFromDiscard={handleTakeFromDiscard}
+      onSelectCardToPeek={handleSelectCardToPeek}
+      peekedCard={peekedCard}
+      showPeekResultModal={showPeekResultModal}
+      onAcknowledgePeekResult={handleAcknowledgePeekResult}
     />
   );
 };

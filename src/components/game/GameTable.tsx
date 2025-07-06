@@ -4,6 +4,7 @@ import Card from './Card';
 import Opponent from './Opponent';
 import InitialPeekModal from './InitialPeekModal';
 import DrawCardModal from './DrawCardModal';
+import PeekResultModal from './PeekResultModal'; // Import the new modal
 import { type DocumentData } from 'firebase/firestore';
 import { type CardData } from '../../utils/deck';
 
@@ -12,23 +13,29 @@ interface GameTableProps {
   myPlayerId: string;
   knownCards: boolean[];
   isSwapping: boolean;
+  isPeeking: boolean;
   onAcknowledgePeek: () => void;
   showInitialPeek: boolean;
   onDrawCard: () => void;
   drawnCard: CardData | null;
   showDrawCardModal: boolean;
   onSwap: () => void;
-  onUseAction: () => void; // Placeholder for now
+  onUseAction: () => void;
   onDiscard: () => void;
   onSelectCardToSwap: (index: number) => void;
   onTakeFromDiscard: () => void;
+  onSelectCardToPeek: (index: number) => void;
+  peekedCard: CardData | null;
+  showPeekResultModal: boolean;
+  onAcknowledgePeekResult: () => void;
 }
 
 const GameTable = (props: GameTableProps) => {
   const { 
-    gameData, myPlayerId, knownCards, isSwapping, onAcknowledgePeek, showInitialPeek, 
+    gameData, myPlayerId, knownCards, isSwapping, isPeeking, onAcknowledgePeek, showInitialPeek, 
     onDrawCard, drawnCard, showDrawCardModal, onSwap, onUseAction, onDiscard,
-    onSelectCardToSwap, onTakeFromDiscard
+    onSelectCardToSwap, onTakeFromDiscard, onSelectCardToPeek,
+    peekedCard, showPeekResultModal, onAcknowledgePeekResult
   } = props;
 
   const { players, playOrder, currentPlayerId, discardPile } = gameData;
@@ -53,6 +60,9 @@ const GameTable = (props: GameTableProps) => {
       {showDrawCardModal && drawnCard && (
         <DrawCardModal card={drawnCard} onSwap={onSwap} onUseAction={onUseAction} onDiscard={onDiscard} />
       )}
+      {showPeekResultModal && peekedCard && (
+        <PeekResultModal card={peekedCard} onAcknowledge={onAcknowledgePeekResult} />
+      )}
 
       <div className="grid grid-cols-3 grid-rows-3 gap-2 w-full max-w-5xl flex-grow md:aspect-video relative">
         {opponentPositions.map(({ player, gridPosition, id }) => (
@@ -70,12 +80,12 @@ const GameTable = (props: GameTableProps) => {
           <div className={`w-full max-w-sm p-2 rounded-lg transition-all duration-300 ${isMyTurn ? 'bg-cyan-500 bg-opacity-30' : ''}`}>
             <div className="text-center mb-2">
               <p className={`text-lg font-bold ${isMyTurn ? 'text-cyan-400' : ''}`}>
-                {isMyTurn ? (isSwapping ? "Select a card to swap..." : "Your Turn!") : `${players[currentPlayerId]?.name}'s Turn`}
+                {isMyTurn ? (isSwapping ? "Select a card to swap..." : isPeeking ? "Select a card to peek..." : "Your Turn!") : `${players[currentPlayerId]?.name}'s Turn`}
               </p>
             </div>
             <div className="grid grid-cols-2 gap-2 place-items-center">
               {myHand.map((card: any, index: number) => (
-                <button key={index} onClick={() => onSelectCardToSwap(index)} disabled={!isSwapping} className="disabled:cursor-not-allowed">
+                <button key={index} onClick={() => isSwapping ? onSelectCardToSwap(index) : onSelectCardToPeek(index)} disabled={!isSwapping && !isPeeking} className="disabled:cursor-not-allowed">
                   <Card value={card.value} suit={card.suit} isKnown={knownCards[index]} />
                 </button>
               ))}
@@ -85,10 +95,10 @@ const GameTable = (props: GameTableProps) => {
       </div>
 
       <div className="w-full max-w-4xl mt-4 p-2 bg-slate-800 bg-opacity-50 rounded-lg flex justify-center gap-2 flex-wrap">
-        <button onClick={onDrawCard} disabled={!isMyTurn || isSwapping} className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-lg disabled:bg-slate-600 disabled:cursor-not-allowed">Draw Card</button>
-        <button onClick={onTakeFromDiscard} disabled={!isMyTurn || isSwapping} className="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-lg disabled:bg-slate-600 disabled:cursor-not-allowed">Take {topCard?.value}{topCard?.suit}</button>
-        <button disabled={!isMyTurn || isSwapping} className="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 disabled:bg-slate-600 disabled:cursor-not-allowed"><Swords size={16} /> Snap!</button>
-        <button disabled={!isMyTurn || isSwapping} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 disabled:bg-slate-600 disabled:cursor-not-allowed"><Shield size={16} /> Call Cambodia</button>
+        <button onClick={onDrawCard} disabled={!isMyTurn || isSwapping || isPeeking} className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-lg disabled:bg-slate-600 disabled:cursor-not-allowed">Draw Card</button>
+        <button onClick={onTakeFromDiscard} disabled={!isMyTurn || isSwapping || isPeeking} className="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-lg disabled:bg-slate-600 disabled:cursor-not-allowed">Take {topCard?.value}{topCard?.suit}</button>
+        <button disabled={!isMyTurn || isSwapping || isPeeking} className="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 disabled:bg-slate-600 disabled:cursor-not-allowed"><Swords size={16} /> Snap!</button>
+        <button disabled={!isMyTurn || isSwapping || isPeeking} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 disabled:bg-slate-600 disabled:cursor-not-allowed"><Shield size={16} /> Call Cambodia</button>
       </div>
     </div>
   );
