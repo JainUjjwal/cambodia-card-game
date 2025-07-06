@@ -34,7 +34,6 @@ const LobbyPage = () => {
       const game = gameDoc.data();
       setGameData(game);
       
-      // If game has started, navigate to game page
       if (game.status === 'in-progress') {
         navigate(`/game/${shortId}`);
       }
@@ -56,6 +55,7 @@ const LobbyPage = () => {
             name: `Player ${newPlayerNumber}`,
             score: 0,
             isReady: false,
+            hasPeekedInitial: false, // Add peek status for new players
           },
           playOrder: [...game.playOrder, currentUser.uid]
         });
@@ -75,8 +75,11 @@ const LobbyPage = () => {
     const deck = shuffleDeck(createDeck());
     const playersUpdate: { [key: string]: any } = {};
     
+    // Also reset peek status for all players at the start of a new game
+    const updatedPlayers = { ...gameData.players };
     gameData.playOrder.forEach((playerId: string) => {
       playersUpdate[`players.${playerId}.hand`] = deck.splice(0, 4);
+      playersUpdate[`players.${playerId}.hasPeekedInitial`] = false;
     });
 
     const discardPile = deck.splice(0, 1);
@@ -90,6 +93,8 @@ const LobbyPage = () => {
     });
   };
 
+  // ... rest of the functions (handleCopy, handleNameChange, handleToggleReady) remain the same
+  
   const handleCopy = () => {
     if (shortId) {
       navigator.clipboard.writeText(shortId.toUpperCase()).then(() => {
