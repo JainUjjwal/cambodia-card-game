@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { collection, query, where, onSnapshot, type DocumentData, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, type DocumentData, doc, updateDoc, arrayRemove, arrayUnion } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../context/AuthContext';
 import GameTable from '../game/GameTable';
@@ -17,51 +17,48 @@ const GamePage = () => {
   const [knownCards, setKnownCards] = useState([false, false, false, false]);
   const [showInitialPeek, setShowInitialPeek] = useState(false);
   
-  // New state for the draw card action
   const [drawnCard, setDrawnCard] = useState<CardData | null>(null);
   const [showDrawCardModal, setShowDrawCardModal] = useState(false);
 
-  useEffect(() => {
-    if (!currentUser || !shortId) return;
+  // New state to manage the swapping process
+  const [isSwapping, setIsSwapping] = useState(false);
+  const [cardToSwap, setCardToSwap] = useState<CardData | null>(null);
 
+  useEffect(() => {
+    // ... (existing useEffect logic remains the same)
+    if (!currentUser || !shortId) return;
     const gamesRef = collection(db, 'games');
     const q = query(gamesRef, where("shortId", "==", shortId.toUpperCase()));
-
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      if (querySnapshot.empty) {
-        setError("Game not found!");
-        return;
-      }
-      
+      if (querySnapshot.empty) { setError("Game not found!"); return; }
       const gameDoc = querySnapshot.docs[0];
       setGameDocId(gameDoc.id);
       const game = gameDoc.data();
       setGameData(game);
-
-      if (game.status === 'waiting') {
-        navigate(`/lobby/${shortId}`);
-      }
-
+      if (game.status === 'waiting') { navigate(`/lobby/${shortId}`); }
       const myPlayerData = game.players[currentUser.uid];
-      if (myPlayerData && myPlayerData.hasPeekedInitial === false) {
-        setShowInitialPeek(true);
-      }
-
+      if (myPlayerData && myPlayerData.hasPeekedInitial === false) { setShowInitialPeek(true); }
     }, (err) => {
       console.error("Snapshot listener error:", err);
       setError("You do not have permission to view this game.");
     });
-
     return () => unsubscribe();
   }, [currentUser, shortId, navigate]);
 
   const handleAcknowledgePeek = async () => {
     if (!gameDocId || !currentUser) return;
     const peekedKey = `players.${currentUser.uid}.hasPeekedInitial`;
-    const gameRef = doc(db, 'games', gameDocId);
-    await updateDoc(gameRef, { [peekedKey]: true });
+    await updateDoc(doc(db, 'games', gameDocId), { [peekedKey]: true });
     setKnownCards([false, false, true, true]);
     setShowInitialPeek(false);
+  };
+
+  const advanceTurn = () => {
+    if (!gameData) return;
+    const { playOrder, currentPlayerId } = gameData;
+    const currentIndex = playOrder.indexOf(currentPlayerId);
+    const nextIndex = (currentIndex + 1) % playOrder.length;
+    return playOrder[nextIndex];
   };
 
   const handleDrawCard = () => {
@@ -71,10 +68,68 @@ const GamePage = () => {
     setShowDrawCardModal(true);
   };
 
-  // Placeholder functions for modal actions - we will implement these later
-  const handleSwap = () => console.log("Swap action initiated");
-  const handleUseAction = () => console.log("Use action initiated");
-  const handleDiscard = () => console.log("Discard action initiated");
+  const handleTakeFromDiscard = () => {
+    if (!gameData || gameData.discardPile.length === 0) return;
+    const topCard = gameData.discardPile[gameData.discardPile.length - 1];
+    setCardToSwap(topCard);
+    setIsSwapping(true);
+  };
+
+  const handleInitiateSwap = () => {
+    if (!drawnCard) return;
+    setCardToSwap(drawnCard);
+    setIsSwapping(true);
+    setShowDrawCardModal(false);
+  };
+
+  const handleSelectCardToSwap = async (cardIndex: number) => {
+    if (!gameDocId || !currentUser || !cardToSwap || !gameData) return;
+
+    const gameRef = doc(db, 'games', gameDocId);
+    const myPlayer = gameData.players[currentUser.uid];
+    const newHand = [...myPlayer.hand];
+    const discardedCard = newHand[cardIndex];
+    newHand[cardIndex] = cardToSwap;
+
+    const newKnownCards = [...knownCards];
+    newKnownCards[cardIndex] = true; // You always know the card you just swapped in
+
+    // Determine if the card came from the deck or discard pile
+    const fromDeck = gameData.deck.some((c: CardData) => c.value === cardToSwap.value && c.suit === cardToSwap.suit);
+    
+    let deckUpdate = {};
+    if (fromDeck) {
+      deckUpdate = { deck: gameData.deck.slice(1) };
+    } else {
+      deckUpdate = { discardPile: gameData.discardPile.slice(0, -1) };
+    }
+
+    await updateDoc(gameRef, {
+      ...deckUpdate,
+      discardPile: arrayUnion(discardedCard),
+      [`players.${currentUser.uid}.hand`]: newHand,
+      currentPlayerId: advanceTurn(),
+    });
+
+    setKnownCards(newKnownCards);
+    setIsSwapping(false);
+    setCardToSwap(null);
+    setDrawnCard(null);
+  };
+
+  const handleDiscardDrawnCard = async () => {
+    if (!gameDocId || !drawnCard || !gameData) return;
+    const gameRef = doc(db, 'games', gameDocId);
+    
+    await updateDoc(gameRef, {
+      deck: gameData.deck.slice(1),
+      discardPile: arrayUnion(drawnCard),
+      currentPlayerId: advanceTurn(),
+    });
+
+    setShowDrawCardModal(false);
+    setDrawnCard(null);
+  };
 
   if (error) return <div className="text-red-500 text-center p-8">{error}</div>;
   if (!gameData) return <div className="text-center p-8">Loading Game...</div>;
@@ -84,14 +139,16 @@ const GamePage = () => {
       gameData={gameData}
       myPlayerId={currentUser?.uid || ''}
       knownCards={knownCards}
+      isSwapping={isSwapping}
       onAcknowledgePeek={handleAcknowledgePeek}
       showInitialPeek={showInitialPeek}
       onDrawCard={handleDrawCard}
       drawnCard={drawnCard}
       showDrawCardModal={showDrawCardModal}
-      onSwap={handleSwap}
-      onUseAction={handleUseAction}
-      onDiscard={handleDiscard}
+      onSwap={handleInitiateSwap}
+      onDiscard={handleDiscardDrawnCard}
+      onSelectCardToSwap={handleSelectCardToSwap}
+      onTakeFromDiscard={handleTakeFromDiscard}
     />
   );
 };
