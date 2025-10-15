@@ -1,28 +1,32 @@
 import React from 'react';
-import { User } from 'lucide-react';
 import Card from './Card';
 import { type DocumentData } from 'firebase/firestore';
 
 interface OpponentProps {
   player: DocumentData;
   isCurrentPlayer: boolean;
+  playerId: string; // This line is added
+  isSpying: boolean;
+  onCardSelect: (playerId: string, cardIndex: number) => void;
 }
 
-const Opponent = ({ player, isCurrentPlayer }: OpponentProps) => {
+const Opponent = ({ player, isCurrentPlayer, playerId, isSpying, onCardSelect }: OpponentProps) => {
   if (!player) return null;
 
-  // Conditionally add a highlight class if it's the current player's turn
-  const highlightClass = isCurrentPlayer ? 'bg-cyan-500 bg-opacity-30 border-cyan-400' : 'bg-slate-700 border-transparent';
+  const handleCardClick = (cardIndex: number) => {
+    if (isSpying) {
+      onCardSelect(playerId, cardIndex);
+    }
+  };
 
   return (
-    <div className={`flex flex-col items-center gap-2 p-2 rounded-lg border-2 ${highlightClass} transition-all duration-300`}>
-      <div className="flex items-center gap-2 text-xs md:text-sm bg-slate-800 px-2 py-1 rounded-md">
-        <User size={14} />
-        <span>{player.name}</span>
-      </div>
-      <div className="grid grid-cols-2 gap-1">
-        {player.hand?.map((_: any, index: number) => (
-          <Card key={index} className="w-10 md:w-12" />
+    <div className={`flex flex-col items-center gap-2 p-2 rounded-lg transition-all duration-300 ${isCurrentPlayer ? 'bg-purple-500 bg-opacity-30' : ''}`}>
+      <span className="font-bold text-sm truncate max-w-24">{player.name}</span>
+      <div className="grid grid-cols-2 gap-2">
+        {player.hand.map((card: any, index: number) => (
+          <button key={index} onClick={() => handleCardClick(index)} disabled={!isSpying} className="disabled:cursor-not-allowed">
+            <Card value={card.value} suit={card.suit} />
+          </button>
         ))}
       </div>
     </div>

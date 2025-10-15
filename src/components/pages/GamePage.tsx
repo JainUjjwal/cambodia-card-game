@@ -20,15 +20,17 @@ const GamePage = () => {
   const [showDrawCardModal, setShowDrawCardModal] = useState(false);
   const [isSwapping, setIsSwapping] = useState(false);
   const [cardToSwap, setCardToSwap] = useState<CardData | null>(null);
-
-  // New state for the Peek action
   const [isPeeking, setIsPeeking] = useState(false);
   const [peekedCard, setPeekedCard] = useState<CardData | null>(null);
   const [showPeekResultModal, setShowPeekResultModal] = useState(false);
 
+  // New state for the Spy action
+  const [isSpying, setIsSpying] = useState(false);
+  const [spiedCard, setSpiedCard] = useState<CardData | null>(null);
+  const [spiedPlayerName, setSpiedPlayerName] = useState<string>('');
+  const [showSpyResultModal, setShowSpyResultModal] = useState(false);
 
   useEffect(() => {
-    // ... (existing useEffect logic remains the same)
     if (!currentUser || !shortId) return;
     const gamesRef = collection(db, 'games');
     const q = query(gamesRef, where("shortId", "==", shortId.toUpperCase()));
@@ -110,29 +112,46 @@ const GamePage = () => {
     setDrawnCard(null);
   };
   
-  const handleInitiatePeek = () => {
-    setIsPeeking(true);
+  const handleUseAction = () => {
+    if (!drawnCard) return;
+    const value = drawnCard.value;
+    if (value === '7' || value === '8') {
+      setIsPeeking(true);
+    } else if (value === '9' || value === '10') {
+      setIsSpying(true);
+    }
     setShowDrawCardModal(false);
   };
 
   const handleSelectCardToPeek = (cardIndex: number) => {
     if (!gameData || !currentUser) return;
     const myHand = gameData.players[currentUser.uid].hand;
-    const card = myHand[cardIndex];
-    setPeekedCard(card);
+    setPeekedCard(myHand[cardIndex]);
     setShowPeekResultModal(true);
     const newKnownCards = [...knownCards];
     newKnownCards[cardIndex] = true;
     setKnownCards(newKnownCards);
   };
+  
+  const handleSelectOpponentCardToSpy = (playerId: string, cardIndex: number) => {
+    if (!gameData) return;
+    const opponentHand = gameData.players[playerId].hand;
+    setSpiedCard(opponentHand[cardIndex]);
+    setSpiedPlayerName(gameData.players[playerId].name);
+    setShowSpyResultModal(true);
+  };
 
-  const handleAcknowledgePeekResult = async () => {
+  const handleAcknowledgeAction = async () => {
     if (!gameDocId || !drawnCard || !gameData) return;
     await updateDoc(doc(db, 'games', gameDocId), { deck: gameData.deck.slice(1), discardPile: arrayUnion(drawnCard), currentPlayerId: advanceTurn() });
+    // Reset all action states
     setShowPeekResultModal(false);
+    setShowSpyResultModal(false);
     setPeekedCard(null);
+    setSpiedCard(null);
     setDrawnCard(null);
     setIsPeeking(false);
+    setIsSpying(false);
   };
 
   if (error) return <div className="text-red-500 text-center p-8">{error}</div>;
@@ -145,20 +164,26 @@ const GamePage = () => {
       knownCards={knownCards}
       isSwapping={isSwapping}
       isPeeking={isPeeking}
+      isSpying={isSpying}
       onAcknowledgePeek={handleAcknowledgePeek}
       showInitialPeek={showInitialPeek}
       onDrawCard={handleDrawCard}
       drawnCard={drawnCard}
       showDrawCardModal={showDrawCardModal}
       onSwap={handleInitiateSwap}
-      onUseAction={handleInitiatePeek} // Changed from placeholder
+      onUseAction={handleUseAction}
       onDiscard={handleDiscardDrawnCard}
       onSelectCardToSwap={handleSelectCardToSwap}
       onTakeFromDiscard={handleTakeFromDiscard}
       onSelectCardToPeek={handleSelectCardToPeek}
       peekedCard={peekedCard}
       showPeekResultModal={showPeekResultModal}
-      onAcknowledgePeekResult={handleAcknowledgePeekResult}
+      onAcknowledgePeekResult={handleAcknowledgeAction}
+      onSelectOpponentCardToSpy={handleSelectOpponentCardToSpy}
+      spiedCard={spiedCard}
+      spiedPlayerName={spiedPlayerName}
+      showSpyResultModal={showSpyResultModal}
+      onAcknowledgeSpyResult={handleAcknowledgeAction}
     />
   );
 };
