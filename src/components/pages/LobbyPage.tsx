@@ -3,14 +3,14 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { doc, updateDoc, collection, query, where, onSnapshot, type DocumentData } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../context/AuthContext';
-import { createDeck, shuffleDeck } from '../../utils/deck';
 import { Book, Copy, User, CheckCircle, Clock, Edit2 } from 'lucide-react';
+import { createDeck, shuffleDeck } from '../../utils/deck';
 
 const LobbyPage = () => {
   const { gameId: shortId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-  
+
   const [gameData, setGameData] = useState<DocumentData | null>(null);
   const [gameDocId, setGameDocId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -26,14 +26,16 @@ const LobbyPage = () => {
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       if (querySnapshot.empty) {
         setError("Game not found!");
+        setGameData(null);
         return;
       }
-      
+
       const gameDoc = querySnapshot.docs[0];
-      setGameDocId(gameDoc.id);
       const game = gameDoc.data();
+
+      setGameDocId(gameDoc.id);
       setGameData(game);
-      
+
       if (game.status === 'in-progress') {
         navigate(`/game/${shortId}`);
       }
@@ -46,18 +48,22 @@ const LobbyPage = () => {
           setError("This game is full or has already started.");
           return;
         }
-        
+
         const newPlayerNumber = playerIds.length + 1;
         const newPlayerKey = `players.${currentUser.uid}`;
-        
+
         updateDoc(gameDoc.ref, {
           [newPlayerKey]: {
             name: `Player ${newPlayerNumber}`,
             score: 0,
             isReady: false,
-            hasPeekedInitial: false, // Add peek status for new players
+            hand: [],
+            hasPeekedInitial: false,
           },
           playOrder: [...game.playOrder, currentUser.uid]
+        }).catch(err => {
+          console.error("Error joining game:", err);
+          setError("Failed to join game due to permissions.");
         });
       }
     }, (err) => {
@@ -69,32 +75,6 @@ const LobbyPage = () => {
 
   }, [currentUser, shortId, navigate]);
 
-  const handleStartGame = async () => {
-    if (!gameDocId || !gameData) return;
-
-    const deck = shuffleDeck(createDeck());
-    const playersUpdate: { [key: string]: any } = {};
-    
-    // Also reset peek status for all players at the start of a new game
-    const updatedPlayers = { ...gameData.players };
-    gameData.playOrder.forEach((playerId: string) => {
-      playersUpdate[`players.${playerId}.hand`] = deck.splice(0, 4);
-      playersUpdate[`players.${playerId}.hasPeekedInitial`] = false;
-    });
-
-    const discardPile = deck.splice(0, 1);
-
-    await updateDoc(doc(db, 'games', gameDocId), {
-      ...playersUpdate,
-      deck: deck,
-      discardPile: discardPile,
-      status: 'in-progress',
-      currentPlayerId: gameData.playOrder[0],
-    });
-  };
-
-  // ... rest of the functions (handleCopy, handleNameChange, handleToggleReady) remain the same
-  
   const handleCopy = () => {
     if (shortId) {
       navigator.clipboard.writeText(shortId.toUpperCase()).then(() => {
@@ -110,8 +90,13 @@ const LobbyPage = () => {
       if (newName && newName.length > 0 && newName.length <= 15) {
         const nameKey = `players.${currentUser.uid}.name`;
         const gameRef = doc(db, 'games', gameDocId);
-        await updateDoc(gameRef, { [nameKey]: newName });
-        setIsEditingName(false);
+        try {
+          await updateDoc(gameRef, { [nameKey]: newName });
+        } catch (error) {
+          console.error("Error updating name: ", error);
+        } finally {
+          setIsEditingName(false);
+        }
       } else {
         alert("Name must be between 1 and 15 characters.");
       }
@@ -126,6 +111,39 @@ const LobbyPage = () => {
       await updateDoc(gameRef, { [readyKey]: !currentReadyStatus });
     }
   };
+
+  const handleStartGame = async () => {
+    if (gameDocId && currentUser && gameData && currentUser.uid === gameData.hostId) {
+      const playerIds = gameData.playOrder;
+      const fullDeck = createDeck();
+      const shuffledDeck = shuffleDeck(fullDeck);
+
+      const updates: { [key: string]: any } = {};
+      
+      playerIds.forEach((playerId: string) => {
+        const dealtCards = shuffledDeck.splice(0, 4);
+        
+        // ** CORRECTED LOGIC **
+        // Mark the bottom two cards as known by this specific player
+        dealtCards[2].knownBy.push(playerId);
+        dealtCards[3].knownBy.push(playerId);
+
+        updates[`players.${playerId}.hand`] = dealtCards;
+        // ** THE FIX **
+        // Ensure EVERYONE needs to perform the initial peek
+        updates[`players.${playerId}.hasPeekedInitial`] = false;
+      });
+
+      updates['deck'] = shuffledDeck.slice(1);
+      updates['discardPile'] = [shuffledDeck[0]];
+      updates['status'] = 'in-progress';
+      updates['currentPlayerId'] = gameData.playOrder[0];
+
+      const gameRef = doc(db, 'games', gameDocId);
+      await updateDoc(gameRef, updates);
+    }
+  };
+
 
   if (error) return <div className="text-red-500 text-center p-8">{error}</div>;
   if (!gameData) return <div className="text-center p-8">Finding Lobby...</div>;
@@ -184,27 +202,15 @@ const LobbyPage = () => {
                   <button onClick={() => setIsEditingName(true)}><Edit2 size={14} className="text-slate-400 hover:text-white" /></button>
                 )}
               </div>
-              
-              <button 
-                onClick={currentUser?.uid === player.id ? handleToggleReady : undefined} 
-                disabled={currentUser?.uid !== player.id}
-                className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm ${currentUser?.uid === player.id ? 'cursor-pointer' : 'cursor-default'}`}
-              >
-                {player.isReady ? 
-                  <><CheckCircle size={16} className="text-green-400" /><span>Ready</span></> : 
-                  <><Clock size={16} className="text-yellow-400" /><span>Waiting...</span></>
-                }
+              <button onClick={() => player.id === currentUser?.uid && handleToggleReady()} disabled={player.id !== currentUser?.uid} className="disabled:cursor-not-allowed">
+                 {player.isReady ? <div className="flex items-center gap-2 text-green-400"><CheckCircle size={20} /><span>Ready</span></div> : <div className="flex items-center gap-2 text-yellow-400"><Clock size={20} /><span>Waiting...</span></div>}
               </button>
             </div>
           ))}
         </div>
 
         <div className="mt-8">
-          <button 
-            onClick={handleStartGame}
-            disabled={!amIHost || !allPlayersReady}
-            className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-200 ease-in-out disabled:bg-slate-600 disabled:text-slate-400 disabled:cursor-not-allowed disabled:transform-none"
-          >
+          <button onClick={handleStartGame} disabled={!amIHost || !allPlayersReady} className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-200 ease-in-out disabled:bg-slate-600 disabled:cursor-not-allowed disabled:transform-none">
             Start Game
           </button>
           <p className="text-center text-xs text-slate-400 mt-2">Only the host can start the game when all players are ready.</p>
@@ -215,3 +221,4 @@ const LobbyPage = () => {
 };
 
 export default LobbyPage;
+

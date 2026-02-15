@@ -3,46 +3,29 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /games/{gameId} {
-
       // READ PERMISSIONS
-      allow get: if request.auth != null && 
-                  (resource.data.status == 'waiting' || request.auth.uid in resource.data.players);
+      allow get: if request.auth != null && (resource.data.status == 'waiting' || request.auth.uid in resource.data.players);
       allow list: if request.auth != null;
 
       // WRITE PERMISSIONS
-      allow create: if request.auth != null && 
-                     request.resource.data.hostId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.hostId == request.auth.uid;
 
       allow update: if request.auth != null && (
         // Condition to JOIN a game
-        (
-          resource.data.status == 'waiting' &&
-          !(request.auth.uid in resource.data.players) &&
-          request.resource.data.players.size() < 6
-        ) ||
+        (resource.data.status == 'waiting' && !(request.auth.uid in resource.data.players) && request.resource.data.players.size() < 6) ||
         // Condition to UPDATE OWN NAME
-        (
-          request.auth.uid in resource.data.players &&
-          request.resource.data.players[request.auth.uid].name != resource.data.players[request.auth.uid].name &&
-          request.resource.data.players.size() == resource.data.players.size()
-        ) ||
+        (request.auth.uid in resource.data.players && request.resource.data.players[request.auth.uid].name != resource.data.players[request.auth.uid].name && request.resource.data.players.size() == resource.data.players.size()) ||
         // Condition to UPDATE OWN READY STATUS
-        (
-          request.auth.uid in resource.data.players &&
-          request.resource.data.players[request.auth.uid].isReady != resource.data.players[request.auth.uid].isReady &&
-          request.resource.data.players.size() == resource.data.players.size()
-        ) ||
+        (request.auth.uid in resource.data.players && request.resource.data.players[request.auth.uid].isReady != resource.data.players[request.auth.uid].isReady && request.resource.data.players.size() == resource.data.players.size()) ||
         // Condition for HOST TO START THE GAME
-        (
-          request.auth.uid == resource.data.hostId &&
-          resource.data.status == 'waiting' &&
-          request.resource.data.status == 'in-progress'
-        ) ||
+        (request.auth.uid == resource.data.hostId && resource.data.status == 'waiting' && request.resource.data.status == 'in-progress') ||
         // Condition to UPDATE OWN PEEK STATUS
+        (request.auth.uid in resource.data.players && resource.data.players[request.auth.uid].hasPeekedInitial == false && request.resource.data.players[request.auth.uid].hasPeekedInitial == true) ||
+        
+        // Condition for TAKING A TURN (covers drawing, taking, swapping, etc.)
         (
-          request.auth.uid in resource.data.players &&
-          resource.data.players[request.auth.uid].hasPeekedInitial == false &&
-          request.resource.data.players[request.auth.uid].hasPeekedInitial == true
+          resource.data.currentPlayerId == request.auth.uid &&
+          request.resource.data.currentPlayerId != resource.data.currentPlayerId // Ensures the turn advances
         )
       );
     }

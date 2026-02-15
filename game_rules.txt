@@ -1,0 +1,42 @@
+Mastering Cambodia: A Guide to the Card Game of Memory and Deception
+Cambodia is a fast-paced and engaging card game that blends memory, strategy, and a touch of calculated risk. The goal is simple: end the round with the lowest total value of cards in front of you. While easy to learn, Cambodia offers a depth of strategy that keeps players coming back for more. Here’s a comprehensive guide to its rules.
+The Objective
+The primary goal in Cambodia is to have the lowest sum of your cards at the end of each round. The game is played over several rounds, and scores are accumulated. The player with the lowest total score after a player exceeds 100 points is declared the winner.
+Setting Up the Game
+Cambodia is typically played with a standard 52-card deck + jokers. To set up:
+Deal the Cards: Each player is dealt four cards face down in a row in front of them.
+Form the Piles: The remaining cards are placed in the center of the table to form a draw pile. The top card of the draw pile is turned face up to start the discard pile.
+The Initial Peek: At the beginning of each round, players may secretly look at their two outermost cards. They must then place them back face down in the same position. This is the only time players can freely look at their cards unless a card's special action allows it.
+Gameplay: A Step-by-Step Guide
+The player to the left of the dealer typically starts the game, and play proceeds clockwise. On your turn, you have three options:
+Draw from the Deck: Take the top card from the draw pile. You have a few choices with this new card:
+Swap: You can swap the drawn card for one of your face-down cards. Place the drawn card face down where your chosen card was, and place your old card face up on the discard pile. You do not get to look at the card you are replacing as you discard it.
+Discard: If you don't want the drawn card, you can place it directly onto the discard pile.
+Use a Special Action: If the drawn card has a special action (see below), you may use it. After using the action, the card is typically discarded.
+Take from the Discard Pile: You may take the top card from the discard pile. If you do, you must swap it with one of your face-down cards. You cannot simply take it and discard it again.
+Call "Cambodia": If you believe you have the lowest total value of cards among all players, you can declare "Cambodia" on your turn instead of drawing a card. When "Cambodia" is called, every other player gets one more turn to try and improve their hand. After the final round of turns, all players reveal their cards, and scores are tallied.
+Card Values and Special Actions
+Understanding the value and power of each card is crucial to mastering Cambodia.
+Card Values:
+Ace: 1 point
+2 through 10: Face value (e.g., a 7 is worth 7 points)
+Jack: 11 points
+Queen: 12 points
+King: red Kings are 0 points and black Kings are 13
+Jokers: -1 points
+Special Actions:
+These actions can only be used when a card is drawn from the deck and the player chooses to use its ability instead of swapping it.
+7 or 8 (Peek): Look at one of your own face-down cards.
+9 or 10 (Spy): Look at one of another player's face-down cards.
+Jack or Queen (Swap): Swap one of your cards with one of an opponent's cards without looking at either card.
+Black King (Spy and Swap): Look at one of another player's face-down cards, take a peek at one of your own cards, and then decide if you’d like to swap the two cards or not.
+“Snapping”: A player can discard a card from their hand in their turn if it matches the card just discarded. (A player can only discard a card when a player before them discards a card of the same value)
+Scoring a Round
+At the end of a round (triggered by a "Cambodia" call or the draw pile running out), players reveal all of their cards and add up their points.
+If you called "Cambodia" and have the lowest total (or are tied for the lowest): You score 0 points for the round. This is the ideal outcome.
+If you called "Cambodia" and do not have the lowest total: You receive your total card value plus a penalty of 10 points.
+If another player called "Cambodia": You simply score the total value of your cards.
+The player with the lowest score at the end of the round goes first in the next round.
+Winning the Game
+The game continues with new rounds until one or more players' cumulative score exceeds 100. At that point, the player with the lowest overall score is the winner.
+

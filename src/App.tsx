@@ -1,7 +1,7 @@
 import { Route, Routes } from 'react-router-dom';
 import LandingPage from './components/pages/LandingPage';
 import LobbyPage from './components/pages/LobbyPage';
-import GamePage from './components/pages/GamePage';
+import { GamePage } from './components/pages/GamePage';
 import GameEndScreen from './components/pages/GameEndScreen';
 
 function App() {

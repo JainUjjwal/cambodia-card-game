@@ -1,144 +1,177 @@
 import React from 'react';
-import { Swords, Shield } from 'lucide-react';
+import { type DocumentData } from 'firebase/firestore';
+import { type User } from 'firebase/auth';
 import Card from './Card';
 import Opponent from './Opponent';
 import InitialPeekModal from './InitialPeekModal';
 import DrawCardModal from './DrawCardModal';
 import PeekResultModal from './PeekResultModal';
-import SpyResultModal from './SpyResultModal'; // Import the new modal
-import { type DocumentData } from 'firebase/firestore';
+import SpyResultModal from './SpyResultModal';
 import { type CardData } from '../../utils/deck';
 
-// Updated props to include everything for Peek and Spy actions
-interface GameTableProps {
+// Define the props for the GameTable component
+export type GameTableProps = {
   gameData: DocumentData;
-  myPlayerId: string;
-  knownCards: boolean[];
-  isSwapping: boolean;
-  isPeeking: boolean;
-  isSpying: boolean; // New prop
-  onAcknowledgePeek: () => void;
+  currentUser: User | null;
+  me: any;
   showInitialPeek: boolean;
+  onInitialPeekDone: () => void;
   onDrawCard: () => void;
   drawnCard: CardData | null;
   showDrawCardModal: boolean;
-  onSwap: () => void;
-  onUseAction: () => void;
   onDiscard: () => void;
-  onSelectCardToSwap: (index: number) => void;
+  onUseAction: () => void;
+  isSwapping: boolean;
   onTakeFromDiscard: () => void;
-  onSelectCardToPeek: (index: number) => void;
-  peekedCard: CardData | null;
+  onSwapCardSelect: (cardIndex: number) => void;
+  onSwapStart: () => void;
+  isPeeking: boolean;
+  onPeekCardSelect: (cardIndex: number) => void;
   showPeekResultModal: boolean;
-  onAcknowledgePeekResult: () => void;
-  onSelectOpponentCardToSpy: (playerId: string, cardIndex: number) => void; // New prop
-  spiedCard: CardData | null; // New prop
-  spiedPlayerName: string; // New prop
-  showSpyResultModal: boolean; // New prop
-  onAcknowledgeSpyResult: () => void; // New prop
-}
+  peekedCardResult: CardData | null;
+  onClosePeekResultModal: () => void;
+  isSpying: boolean;
+  onSpyCardSelect: (playerId: string, cardIndex: number) => void;
+  showSpyResultModal: boolean;
+  spiedCardResult: { card: CardData; playerName: string } | null;
+  onCloseSpyResultModal: () => void;
+};
 
-const GameTable = (props: GameTableProps) => {
-  const { 
-    gameData, myPlayerId, knownCards, isSwapping, isPeeking, isSpying, onAcknowledgePeek, showInitialPeek, 
-    onDrawCard, drawnCard, showDrawCardModal, onSwap, onUseAction, onDiscard,
-    onSelectCardToSwap, onTakeFromDiscard, onSelectCardToPeek,
-    peekedCard, showPeekResultModal, onAcknowledgePeekResult,
-    onSelectOpponentCardToSpy, spiedCard, spiedPlayerName, showSpyResultModal, onAcknowledgeSpyResult
-  } = props;
+export const GameTable = ({
+  gameData,
+  currentUser,
+  me,
+  showInitialPeek,
+  onInitialPeekDone,
+  onDrawCard,
+  drawnCard,
+  showDrawCardModal,
+  onDiscard,
+  onUseAction,
+  isSwapping,
+  onTakeFromDiscard,
+  onSwapCardSelect,
+  onSwapStart,
+  isPeeking,
+  onPeekCardSelect,
+  showPeekResultModal,
+  peekedCardResult,
+  onClosePeekResultModal,
+  isSpying,
+  onSpyCardSelect,
+  showSpyResultModal,
+  spiedCardResult,
+  onCloseSpyResultModal,
+}: GameTableProps) => {
 
-  const { players, playOrder, currentPlayerId, discardPile } = gameData;
-  const myHand = players[myPlayerId]?.hand || [];
-  const isMyTurn = currentPlayerId === myPlayerId;
-  
-  const opponentOrder = playOrder.filter((pid: string) => pid !== myPlayerId);
-  const opponentPositions = [
-    { gridPosition: 'col-start-2 row-start-1', player: players[opponentOrder[0]], id: opponentOrder[0] },
-    { gridPosition: 'col-start-1 row-start-2', player: players[opponentOrder[1]], id: opponentOrder[1] },
-    { gridPosition: 'col-start-3 row-start-2', player: players[opponentOrder[2]], id: opponentOrder[2] },
-    { gridPosition: 'col-start-1 row-start-1', player: players[opponentOrder[3]], id: opponentOrder[3] },
-    { gridPosition: 'col-start-3 row-start-1', player: players[opponentOrder[4]], id: opponentOrder[4] },
-  ].filter(p => p.player);
+  const opponents = gameData.playOrder
+    .filter((id: string) => id !== currentUser?.uid)
+    .map((id: string) => ({ id, ...gameData.players[id] }));
 
-  const topCard = discardPile && discardPile.length > 0 ? discardPile[discardPile.length - 1] : null;
+  const isMyTurn = gameData.currentPlayerId === currentUser?.uid;
+  const topCardOfDiscard = gameData.discardPile[0];
 
-  // Updated instructional text to handle all action states
+  const opponentPositions: { [key: number]: string[] } = {
+    1: ['top-center'],
+    2: ['top-center', 'middle-left'],
+    3: ['top-center', 'middle-left', 'middle-right'],
+    4: ['top-left', 'top-right', 'middle-left', 'middle-right'],
+    5: ['top-left', 'top-center', 'top-right', 'middle-left', 'middle-right'],
+  };
+
+  const getPositionClass = (index: number) => {
+    const positions = opponentPositions[opponents.length] || [];
+    return positions[index] || '';
+  };
+
   const getInstructionalText = () => {
-    if (!isMyTurn) return `${players[currentPlayerId]?.name}'s Turn`;
-    if (isSwapping) return "Select a card to swap...";
-    if (isPeeking) return "Select one of your cards to peek...";
+    if (!isMyTurn) return `Waiting for ${gameData.players[gameData.currentPlayerId]?.name}'s turn...`;
+    if (isSwapping) return "Select one of your cards to swap...";
+    if (isPeeking) return "Select one of your cards to peek at...";
     if (isSpying) return "Select an opponent's card to spy on...";
-    return "Your Turn!";
+    return "Your turn. Draw a card or take from the discard pile.";
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-slate-800 via-slate-900 to-black p-2 md:p-4 text-white font-sans">
-      
-      {showInitialPeek && <InitialPeekModal hand={myHand} onAcknowledge={onAcknowledgePeek} />}
-      {showDrawCardModal && drawnCard && (
-        <DrawCardModal card={drawnCard} onSwap={onSwap} onUseAction={onUseAction} onDiscard={onDiscard} />
-      )}
-      {showPeekResultModal && peekedCard && (
-        <PeekResultModal card={peekedCard} onAcknowledge={onAcknowledgePeekResult} />
-      )}
-      {/* Render the new SpyResultModal */}
-      {showSpyResultModal && spiedCard && (
-        <SpyResultModal card={spiedCard} playerName={spiedPlayerName} onAcknowledge={onAcknowledgeSpyResult} />
-      )}
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 to-green-900 p-2 md:p-4 text-white">
+        {/* Main Game Board */}
+        <div className="relative w-full max-w-4xl aspect-video bg-green-800 bg-opacity-50 rounded-3xl shadow-2xl p-4 grid grid-cols-3 grid-rows-3 gap-4 border-4 border-amber-900/50">
 
-      <div className="grid grid-cols-3 grid-rows-3 gap-2 w-full max-w-5xl flex-grow md:aspect-video relative">
-        {opponentPositions.map(({ player, gridPosition, id }) => (
-          <div key={id} className={`flex justify-center items-center ${gridPosition}`}>
-            {/* Pass isSpying and onSelectOpponentCardToSpy to Opponent */}
-            <Opponent 
-              player={player} 
-              isCurrentPlayer={id === currentPlayerId} 
-              playerId={id}
-              onCardSelect={onSelectOpponentCardToSpy} 
-              isSpying={isSpying && isMyTurn} 
+          {/* Opponent Areas */}
+          {opponents.map((player: any, index: number) => (
+            <Opponent
+              key={player.id}
+              player={player}
+              position={getPositionClass(index)}
+              isCurrentPlayer={gameData.currentPlayerId === player.id}
+              currentUserId={currentUser?.uid}
+              onCardSelect={onSpyCardSelect}
+              isSpying={isSpying && isMyTurn}
             />
+          ))}
+          
+          {/* Center Area */}
+          <div className="col-start-2 row-start-2 flex items-center justify-center gap-4">
+              <Card className="shadow-xl" />
+              <Card value={topCardOfDiscard.value} suit={topCardOfDiscard.suit} isFaceUp={true} className="shadow-xl" />
           </div>
-        ))}
+
+          {/* Current Player Area */}
+          <div className={`col-span-3 row-start-3 self-end flex flex-col items-center gap-2 p-2 rounded-lg transition-all duration-300 ${isMyTurn ? 'bg-yellow-500/20 ring-2 ring-yellow-400' : ''}`}>
+              <div className="flex justify-center gap-2 sm:gap-4">
+                {me?.hand.map((card: CardData, index: number) => (
+                  <button
+                    key={index}
+                    disabled={(!isSwapping && !isPeeking) || !isMyTurn}
+                    onClick={() => {
+                      if (isSwapping) onSwapCardSelect(index);
+                      if (isPeeking) onPeekCardSelect(index);
+                    }}
+                    className="disabled:cursor-not-allowed transform hover:scale-110 transition-transform"
+                  >
+                    <Card value={card.value} suit={card.suit} isFaceUp={false} isKnown={card.knownBy.includes(currentUser?.uid || '')} />
+                  </button>
+                ))}
+              </div>
+              <span className="font-bold text-lg">{me?.name} (You)</span>
+          </div>
+        </div>
+
+        {/* Action Bar */}
+        <div className="mt-4 w-full max-w-4xl p-4 bg-slate-800/50 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="text-center sm:text-left">
+              <p className="text-sm text-slate-300">Turn Status</p>
+              <p className="font-semibold text-lg">{getInstructionalText()}</p>
+            </div>
+            <div className="flex gap-2 sm:gap-4">
+              <button onClick={onDrawCard} disabled={!isMyTurn || isSwapping || isPeeking || isSpying} className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-6 rounded-lg disabled:bg-slate-600 disabled:cursor-not-allowed">
+                Draw Card
+              </button>
+              <button onClick={onTakeFromDiscard} disabled={!isMyTurn || isSwapping || isPeeking || isSpying} className="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-6 rounded-lg disabled:bg-slate-600 disabled:cursor-not-allowed">
+                Take {topCardOfDiscard.value}{topCardOfDiscard.suit}
+              </button>
+            </div>
+        </div>
         
-        <div className="col-start-2 row-start-2 flex justify-center items-center gap-4">
-          <Card />
-          {topCard && <Card value={topCard.value} suit={topCard.suit} isFaceUp={true} />}
-        </div>
-
-        <div className="col-span-3 row-start-3 flex flex-col items-center justify-end">
-          <div className={`w-full max-w-sm p-2 rounded-lg transition-all duration-300 ${isMyTurn ? 'bg-cyan-500 bg-opacity-30' : ''}`}>
-            <div className="text-center mb-2">
-              <p className={`text-lg font-bold ${isMyTurn ? 'text-cyan-400' : ''}`}>
-                {getInstructionalText()}
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-2 place-items-center">
-              {myHand.map((card: any, index: number) => (
-                <button 
-                  key={index} 
-                  onClick={() => {
-                    if (isSwapping) onSelectCardToSwap(index);
-                    if (isPeeking) onSelectCardToPeek(index);
-                  }} 
-                  disabled={!isSwapping && !isPeeking} 
-                  className="disabled:cursor-not-allowed"
-                >
-                  <Card value={card.value} suit={card.suit} isKnown={knownCards[index]} />
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="w-full max-w-4xl mt-4 p-2 bg-slate-800 bg-opacity-50 rounded-lg flex justify-center gap-2 flex-wrap">
-        <button onClick={onDrawCard} disabled={!isMyTurn || isSwapping || isPeeking || isSpying} className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-lg disabled:bg-slate-600 disabled:cursor-not-allowed">Draw Card</button>
-        <button onClick={onTakeFromDiscard} disabled={!isMyTurn || isSwapping || isPeeking || isSpying} className="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-lg disabled:bg-slate-600 disabled:cursor-not-allowed">Take {topCard?.value}{topCard?.suit}</button>
-        <button disabled={!isMyTurn || isSwapping || isPeeking || isSpying} className="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 disabled:bg-slate-600 disabled:cursor-not-allowed"><Swords size={16} /> Snap!</button>
-        <button disabled={!isMyTurn || isSwapping || isPeeking || isSpying} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 disabled:bg-slate-600 disabled:cursor-not-allowed"><Shield size={16} /> Call Cambodia</button>
-      </div>
+        {/* Modals */}
+        {showInitialPeek && me?.hand && <InitialPeekModal hand={me.hand} onDone={onInitialPeekDone} />}
+        {showDrawCardModal && drawnCard && (
+          <DrawCardModal 
+            card={drawnCard} 
+            onDiscard={onDiscard} 
+            onSwap={onSwapStart} 
+            onUseAction={onUseAction}
+          />
+        )}
+        {showPeekResultModal && peekedCardResult && <PeekResultModal card={peekedCardResult} onClose={onClosePeekResultModal} />}
+        {showSpyResultModal && spiedCardResult && (
+          <SpyResultModal 
+            card={spiedCardResult.card} 
+            playerName={spiedCardResult.playerName} 
+            onClose={onCloseSpyResultModal} 
+          />
+        )}
     </div>
   );
 };
 
-export default GameTable;

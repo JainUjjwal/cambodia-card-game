@@ -1,0 +1,119 @@
+Development Plan of Action: Cambodia Card Game
+
+This plan outlines the staged implementation of the Cambodia application, designed to move from infrastructure to core gameplay.
+
+Phase 1: Project Foundation & Setup
+
+Focus: Setting up the environment, dependencies, and backend connection.
+
+Task 1: Initialize Project
+
+1.1: Install Tailwind CSS (Styling).
+
+1.2: Install Firebase SDK (Backend/Database).
+
+1.3: Install UI & Utility Libraries (lucide-react, react-router-dom).
+
+Task 2: Firebase Configuration
+
+2.1: Project creation and Firestore/Auth enablement.
+
+2.2: Setup firebase.ts with environment variables.
+
+2.3: Initial "Deny All" Firestore security rules.
+
+Phase 2: Core UI & Application Structure
+
+Focus: Static layouts and navigation.
+
+Task 3: Routing and Layouts
+
+3.1: Setup react-router-dom navigation.
+
+3.2: LandingPage UI (Create/Join/Rules).
+
+3.3: LobbyPage UI (Player list placeholder).
+
+3.4: GameTable UI (2x2 grid layout placeholders).
+
+3.5: GameEndScreen UI (Scoreboard mockup).
+
+Phase 3: State Management & Lobby Logic
+
+Focus: Real-time synchronization for joining games.
+
+Task 4: Lobby Connectivity
+
+4.1: createGame logic (Firestore document creation).
+
+4.2: joinGame logic (Adding players to Firestore map).
+
+4.3: Real-time Player List (Firestore onSnapshot).
+
+4.4: Player Ready System (Host validation for game start).
+
+Phase 4: Core Gameplay Mechanics
+
+Focus: Dealing, turn management, and card actions.
+
+Task 5: Starting the Game
+
+5.1: startGame logic (Shuffle, deal 4 cards, set status).
+
+5.2: Render hands (Face-down logic).
+
+5.3: Initial Peek (One-time view of bottom 2 cards).
+
+Task 6: Basic Turns
+
+6.1: Turn Indication (Current player highlighting).
+
+6.2: "Draw from Deck" Action (Modal presentation).
+
+6.3: "Take from Discard" Action.
+
+6.4: Card Swapping (Update hand and discard pile).
+
+6.5: Turn Advancement (Next player logic).
+
+Task 7: Special Actions & Enhancements
+
+7.1: "Peek" Action (7, 8 cards).
+
+7.2: "Spy" Action (9, 10 cards).
+
+7.3: "Blind Swap" Action (J, Q cards).
+
+7.4: "Spy and Swap" Action (Black King).
+
+7.5: "Snap" Action (Matching card logic).
+
+Enhancement: Persistent Memory (Eye icon for cards previously spied/peeked).
+
+Phase 5: Final Polishing
+
+Focus: Scoring, round resets, and timers.
+
+Task 8: Scoring
+
+8.1: "Call Cambodia" (Triggering the final round).
+
+8.2: Round-End Scoring calculation.
+
+8.3: Score history display.
+
+Task 9: Game Loop Completion
+
+9.1: Win condition check (100 points).
+
+9.2: Game End summary.
+
+9.3: Restart logic.
+
+Task 10: Performance & Timer
+
+10.1: Turn timer duration setup.
+
+10.2: Frontend countdown UI.
+
+10.3: Auto-skip turn logic (Client-side with Security Rule validation).

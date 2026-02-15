@@ -1,41 +1,48 @@
-export interface CardData {
+export type CardData = {
   value: string;
   suit: '♠' | '♥' | '♦' | '♣' | 'Joker';
-  points: number;
-}
+  points: number; // Re-added the points property
+  knownBy: string[];
+};
+
+const SUITS: ('♠' | '♥' | '♦' | '♣' )[] = ['♠', '♥', '♦', '♣'];
+const VALUES = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+
+// Helper function to get the correct point value for a card
+const getPoints = (value: string, suit: '♠' | '♥' | '♦' | '♣'): number => {
+  switch (value) {
+    case 'A': return 1;
+    case 'J': return 11;
+    case 'Q': return 12;
+    case 'K':
+      // Red Kings are 0 points, Black Kings are 13
+      return (suit === '♥' || suit === '♦') ? 0 : 13;
+    default:
+      return parseInt(value, 10);
+  }
+};
 
 export const createDeck = (): CardData[] => {
-  const suits: ('♠' | '♥' | '♦' | '♣')[] = ['♠', '♥', '♦', '♣'];
-  const values = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
-  let deck: CardData[] = [];
+  const deck: CardData[] = SUITS.flatMap((suit) =>
+    VALUES.map((value) => ({
+      value,
+      suit,
+      points: getPoints(value, suit),
+      knownBy: [],
+    }))
+  );
 
-  for (const suit of suits) {
-    for (const value of values) {
-      let points = 0;
-      if (value === 'A') points = 1;
-      else if (value === 'K') {
-        points = (suit === '♥' || suit === '♦') ? 0 : 13;
-      }
-      else if (value === 'Q') points = 12;
-      else if (value === 'J') points = 11;
-      else points = parseInt(value);
-      
-      deck.push({ value, suit, points });
-    }
-  }
-
-  // Add two Jokers
-  deck.push({ value: 'Joker', suit: 'Joker', points: -1 });
-  deck.push({ value: 'Joker', suit: 'Joker', points: -1 });
+  // Add two Jokers with -1 points
+  deck.push({ value: 'Joker', suit: 'Joker', points: -1, knownBy: [] });
+  deck.push({ value: 'Joker', suit: 'Joker', points: -1, knownBy: [] });
 
   return deck;
 };
 
 export const shuffleDeck = (deck: CardData[]): CardData[] => {
-  let shuffledDeck = [...deck];
-  for (let i = shuffledDeck.length - 1; i > 0; i--) {
+  for (let i = deck.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [shuffledDeck[i], shuffledDeck[j]] = [shuffledDeck[j], shuffledDeck[i]];
+    [deck[i], deck[j]] = [deck[j], deck[i]];
   }
-  return shuffledDeck;
+  return deck;
 };
