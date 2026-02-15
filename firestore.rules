@@ -12,7 +12,7 @@ service cloud.firestore {
 
       allow update: if request.auth != null && (
         // Condition to JOIN a game
-        (resource.data.status == 'waiting' && !(request.auth.uid in resource.data.players) && request.resource.data.players.size() < 6) ||
+        (resource.data.status == 'waiting' && !(request.auth.uid in resource.data.players) && request.resource.data.players.size() <= 6) ||
         // Condition to UPDATE OWN NAME
         (request.auth.uid in resource.data.players && request.resource.data.players[request.auth.uid].name != resource.data.players[request.auth.uid].name && request.resource.data.players.size() == resource.data.players.size()) ||
         // Condition to UPDATE OWN READY STATUS

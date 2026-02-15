@@ -5,6 +5,7 @@ import { db } from '../../firebase';
 import { useAuth } from '../../context/AuthContext';
 import { GameTable } from '../game/GameTable';
 import { type CardData } from '../../utils/deck';
+import { getNextPlayerId } from '../../utils/gameLogic';
 
 export const GamePage = () => {
   const { gameId: shortId } = useParams<{ gameId: string }>();
@@ -28,11 +29,14 @@ export const GamePage = () => {
   // State for peeking a card
   const [isPeeking, setIsPeeking] = useState(false);
   const [peekedCardResult, setPeekedCardResult] = useState<CardData | null>(null);
+  const [peekedCardIndex, setPeekedCardIndex] = useState<number | null>(null);
   const [showPeekResultModal, setShowPeekResultModal] = useState(false);
 
   // State for spying on a card
   const [isSpying, setIsSpying] = useState(false);
-  const [spiedCardResult, setSpiedCardResult] = useState<CardData | null>(null);
+  const [spiedCardResult, setSpiedCardResult] = useState<{ card: CardData; playerName: string } | null>(null);
+  const [spiedCardPlayerId, setSpiedCardPlayerId] = useState<string | null>(null);
+  const [spiedCardIndex, setSpiedCardIndex] = useState<number | null>(null);
   const [showSpyResultModal, setShowSpyResultModal] = useState(false);
 
 
@@ -110,8 +114,7 @@ export const GamePage = () => {
   const handleDiscard = async () => {
     if (!gameData || !gameDocId || !currentUser || !drawnCard) return;
 
-    const nextPlayerIndex = (gameData.playOrder.indexOf(currentUser.uid) + 1) % gameData.playOrder.length;
-    const nextPlayerId = gameData.playOrder[nextPlayerIndex];
+    const nextPlayerId = getNextPlayerId(currentUser.uid, gameData.playOrder);
 
     const updates = {
       deck: gameData.deck.slice(1),
@@ -160,8 +163,7 @@ export const GamePage = () => {
       newDeck = gameData.deck.slice(1);
     }
     
-    const nextPlayerIndex = (gameData.playOrder.indexOf(currentUser.uid) + 1) % gameData.playOrder.length;
-    const nextPlayerId = gameData.playOrder[nextPlayerIndex];
+    const nextPlayerId = getNextPlayerId(currentUser.uid, gameData.playOrder);
 
     const updates: { [key: string]: any } = {
       [`players.${currentUser.uid}.hand`]: myHand,
@@ -193,35 +195,34 @@ export const GamePage = () => {
     setShowDrawCardModal(false);
   };
 
-  const handlePeekCardSelect = async (cardIndex: number) => {
-    if (!gameData || !currentUser || !gameDocId) return;
+  const handlePeekCardSelect = (cardIndex: number) => {
+    if (!gameData || !currentUser) return;
     
     const me = gameData.players[currentUser.uid];
-    const peekedCard = { ...me.hand[cardIndex] };
+    const peekedCard = me.hand[cardIndex];
+
+    setPeekedCardResult(peekedCard);
+    setPeekedCardIndex(cardIndex);
+    setShowPeekResultModal(true);
+  };
+  
+  const handleClosePeekResultModal = async () => {
+    if (!gameData || !gameDocId || !currentUser || !drawnCard || peekedCardIndex === null) return;
+
+    const me = gameData.players[currentUser.uid];
+    const updatedHand = [...me.hand];
+    const peekedCard = { ...updatedHand[peekedCardIndex] };
 
     // Add current user to the knownBy array if not already there
     if (!peekedCard.knownBy.includes(currentUser.uid)) {
       peekedCard.knownBy.push(currentUser.uid);
     }
-    
-    const myHand = [...me.hand];
-    myHand[cardIndex] = peekedCard;
-    
-    const handKey = `players.${currentUser.uid}.hand`;
-    const gameRef = doc(db, 'games', gameDocId);
-    await updateDoc(gameRef, { [handKey]: myHand });
+    updatedHand[peekedCardIndex] = peekedCard;
 
-    setPeekedCardResult(peekedCard);
-    setShowPeekResultModal(true);
-  };
-  
-  const handleClosePeekResultModal = async () => {
-    if (!gameData || !gameDocId || !currentUser || !drawnCard) return;
-
-    const nextPlayerIndex = (gameData.playOrder.indexOf(currentUser.uid) + 1) % gameData.playOrder.length;
-    const nextPlayerId = gameData.playOrder[nextPlayerIndex];
+    const nextPlayerId = getNextPlayerId(currentUser.uid, gameData.playOrder);
 
     const updates = {
+      [`players.${currentUser.uid}.hand`]: updatedHand,
       deck: gameData.deck.slice(1),
       discardPile: [drawnCard, ...gameData.discardPile],
       currentPlayerId: nextPlayerId,
@@ -232,40 +233,40 @@ export const GamePage = () => {
 
     setShowPeekResultModal(false);
     setPeekedCardResult(null);
+    setPeekedCardIndex(null);
     setIsPeeking(false);
     setDrawnCard(null);
   };
 
-  const handleSpyCardSelect = async (spiedPlayerId: string, spiedCardIndex: number) => {
-    if (!gameData || !currentUser || !gameDocId) return;
+  const handleSpyCardSelect = (spiedPlayerId: string, spiedCardIndex: number) => {
+    if (!gameData || !currentUser) return;
 
-    // ** THE FIX IS HERE **
-    const gameDataCopy = JSON.parse(JSON.stringify(gameData));
-    const spiedPlayer = gameDataCopy.players[spiedPlayerId];
+    const spiedPlayer = gameData.players[spiedPlayerId];
     const spiedCard = spiedPlayer.hand[spiedCardIndex];
+
+    setSpiedCardResult({ card: spiedCard, playerName: spiedPlayer.name });
+    setSpiedCardPlayerId(spiedPlayerId);
+    setSpiedCardIndex(spiedCardIndex);
+    setShowSpyResultModal(true);
+  };
+
+  const handleCloseSpyResultModal = async () => {
+    if (!gameData || !gameDocId || !currentUser || !drawnCard || spiedCardPlayerId === null || spiedCardIndex === null) return;
+
+    const spiedPlayer = { ...gameData.players[spiedCardPlayerId] };
+    const updatedHand = [...spiedPlayer.hand];
+    const spiedCard = { ...updatedHand[spiedCardIndex] };
 
     // Add current user to the knownBy array if not already there
     if (!spiedCard.knownBy.includes(currentUser.uid)) {
       spiedCard.knownBy.push(currentUser.uid);
     }
+    updatedHand[spiedCardIndex] = spiedCard;
     
-    const handKey = `players.${spiedPlayerId}.hand`;
-    const updates = { [handKey]: spiedPlayer.hand };
-    
-    const gameRef = doc(db, 'games', gameDocId);
-    await updateDoc(gameRef, updates);
-
-    setSpiedCardResult(spiedCard);
-    setShowSpyResultModal(true);
-  };
-
-  const handleCloseSpyResultModal = async () => {
-    if (!gameData || !gameDocId || !currentUser || !drawnCard) return;
-
-    const nextPlayerIndex = (gameData.playOrder.indexOf(currentUser.uid) + 1) % gameData.playOrder.length;
-    const nextPlayerId = gameData.playOrder[nextPlayerIndex];
+    const nextPlayerId = getNextPlayerId(currentUser.uid, gameData.playOrder);
 
     const updates = {
+      [`players.${spiedCardPlayerId}.hand`]: updatedHand,
       deck: gameData.deck.slice(1),
       discardPile: [drawnCard, ...gameData.discardPile],
       currentPlayerId: nextPlayerId,
@@ -276,6 +277,8 @@ export const GamePage = () => {
 
     setShowSpyResultModal(false);
     setSpiedCardResult(null);
+    setSpiedCardPlayerId(null);
+    setSpiedCardIndex(null);
     setIsSpying(false);
     setDrawnCard(null);
   };
