@@ -193,10 +193,24 @@ export const GamePage = () => {
     setShowDrawCardModal(false);
   };
 
-  const handlePeekCardSelect = (cardIndex: number) => {
-    if (!gameData || !currentUser) return;
+  const handlePeekCardSelect = async (cardIndex: number) => {
+    if (!gameData || !currentUser || !gameDocId) return;
+    
     const me = gameData.players[currentUser.uid];
-    const peekedCard = me.hand[cardIndex];
+    const peekedCard = { ...me.hand[cardIndex] };
+
+    // Add current user to the knownBy array if not already there
+    if (!peekedCard.knownBy.includes(currentUser.uid)) {
+      peekedCard.knownBy.push(currentUser.uid);
+    }
+    
+    const myHand = [...me.hand];
+    myHand[cardIndex] = peekedCard;
+    
+    const handKey = `players.${currentUser.uid}.hand`;
+    const gameRef = doc(db, 'games', gameDocId);
+    await updateDoc(gameRef, { [handKey]: myHand });
+
     setPeekedCardResult(peekedCard);
     setShowPeekResultModal(true);
   };
