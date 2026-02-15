@@ -140,9 +140,25 @@ export const GamePage = () => {
     const myHand = [...me.hand];
   
     const replacedCard = myHand[cardIndex];
-    myHand[cardIndex] = cardToSwap;
+    
+    // Add memory: Player now knows the card they just put in their hand
+    const updatedCardToSwap = {
+      ...cardToSwap,
+      knownBy: Array.from(new Set([...cardToSwap.knownBy, currentUser.uid]))
+    };
+    myHand[cardIndex] = updatedCardToSwap;
   
-    const newDiscardPile = [replacedCard, ...gameData.discardPile];
+    let newDiscardPile = [replacedCard, ...gameData.discardPile];
+    let newDeck = gameData.deck;
+
+    // Check where the card came from to update that pile correctly
+    if (gameData.discardPile.length > 0 && cardToSwap === gameData.discardPile[0]) {
+      // If we took from discard, remove it from the old position
+      newDiscardPile = [replacedCard, ...gameData.discardPile.slice(1)];
+    } else if (drawnCard && cardToSwap === drawnCard) {
+      // If we took from deck, remove it from the deck
+      newDeck = gameData.deck.slice(1);
+    }
     
     const nextPlayerIndex = (gameData.playOrder.indexOf(currentUser.uid) + 1) % gameData.playOrder.length;
     const nextPlayerId = gameData.playOrder[nextPlayerIndex];
@@ -150,6 +166,7 @@ export const GamePage = () => {
     const updates: { [key: string]: any } = {
       [`players.${currentUser.uid}.hand`]: myHand,
       discardPile: newDiscardPile,
+      deck: newDeck,
       currentPlayerId: nextPlayerId,
     };
   
