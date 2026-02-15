@@ -23,3 +23,11 @@ dist-ssr
 *.sln
 *.sw?
 .env.local
+game_rules.txt
+test_plan.md
+game_dev_roadmap.txt
+coverage/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/

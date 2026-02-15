@@ -90,6 +90,32 @@ Task 7: Special Actions & Enhancements
 
 Enhancement: Persistent Memory (Eye icon for cards previously spied/peeked).
 
+Phase 4.5: Quality Assurance & Testing Foundation
+
+Focus: Comprehensive automated testing to ensure stability and prevent regressions.
+
+Task T1: Unit Testing (Vitest)
+T1.1: Setup Vitest and configure test environment.
+T1.2: Test `deck.ts`: createDeck (54 cards), shuffle stability, and rank point values (Ace=1, Red King=0, etc.).
+T1.3: Test Turn Logic: Next player calculation and wrap-around logic.
+
+Task T2: Component Testing (React Testing Library)
+T2.1: Card Scenarios: Face-up/down states, Joker rendering, Suit colors, and "Known" Eye icon visibility.
+T2.2: Modal Scenarios: 
+     - DrawCardModal: Action button enabling/disabling based on rank (7-K).
+     - InitialPeekModal: Displaying only bottom cards and closing correctly.
+     - Spy/Peek Result Modals: Displaying the correct revealed card.
+T2.3: Opponent Scenarios: Hand count rendering and "Spy" mode interactivity.
+T2.4: GameTable Scenarios: Instructional text updates and multi-opponent layout positioning.
+
+Task T3: E2E Testing (Playwright)
+T3.1: Setup Playwright for multi-browser context testing.
+T3.2: Lobby Flow: Join game via ID, real-time player list sync, and Ready/Start validation.
+T3.3: Basic Turn Flow: Draw-to-Discard, Draw-to-Swap, and Take-from-Discard cycles with turn advancement.
+T3.4: Action Flow: Executing Peek and Spy actions and verifying persistent "Eye" memory icons.
+T3.5: Resilience: Browser refresh state persistence and illegal move prevention (out-of-turn actions).
+T3.6: Multi-player Scale: E2E test for Lobby and Turn flow with 6 players (stress testing Firestore sync).
+
 Phase 5: Final Polishing
 
 Focus: Scoring, round resets, and timers.
