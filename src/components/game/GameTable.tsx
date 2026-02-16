@@ -203,22 +203,32 @@ export const GameTable = ({
           {/* Current Player Area */}
           <div className={`md:col-span-3 md:row-start-3 self-center md:self-end flex flex-col items-center gap-1 md:gap-2 p-2 rounded-2xl transition-all duration-300 ${isMyTurn ? 'bg-yellow-500/20 ring-2 ring-yellow-400' : 'bg-slate-800/30'}`}>
               <div className="flex justify-center gap-1.5 sm:gap-4">
-                {me?.hand.map((card: CardData, index: number) => (
-                  <button
-                    key={index}
-                    disabled={(!isSwapping && !isPeeking && !(isBlindSwapping && blindSwapOwnIndex === null) && !(isSpySwapping && spySwapStep === 'own') && !(isMyTurn && !drawnCard)) || !isMyTurn}
-                    onClick={() => {
-                      if (isSwapping) onSwapCardSelect(index);
-                      if (isPeeking) onPeekCardSelect(index);
-                      if (isBlindSwapping && blindSwapOwnIndex === null) onBlindSwapCardSelect(currentUser?.uid || '', index);
-                      if (isSpySwapping && spySwapStep === 'own') onSpySwapCardSelect(currentUser?.uid || '', index);
-                      if (isMyTurn && !isSwapping && !isPeeking && !isBlindSwapping && !isSpySwapping && !drawnCard) onSnapCardSelect(index);
-                    }}
-                    className="disabled:cursor-not-allowed transform hover:scale-110 active:scale-95 transition-all"
-                  >
-                    <Card value={card.value} suit={card.suit} isFaceUp={false} isKnown={card.knownBy.includes(currentUser?.uid || '')} />
-                  </button>
-                ))}
+                {me?.hand.map((card: CardData, index: number) => {
+                  const canClick = isMyTurn && (
+                    isPeeking || 
+                    isSwapping ||
+                    (isBlindSwapping && blindSwapOwnIndex === null) ||
+                    (isSpySwapping && spySwapStep === 'own') ||
+                    (!drawnCard && !isPeeking && !isSwapping && !isBlindSwapping && !isSpySwapping) // Snap
+                  );
+
+                  return (
+                    <button
+                      key={index}
+                      disabled={!canClick}
+                      onClick={() => {
+                        if (isSwapping) onSwapCardSelect(index);
+                        else if (isPeeking) onPeekCardSelect(index);
+                        else if (isBlindSwapping && blindSwapOwnIndex === null) onBlindSwapCardSelect(currentUser?.uid || '', index);
+                        else if (isSpySwapping && spySwapStep === 'own') onSpySwapCardSelect(currentUser?.uid || '', index);
+                        else if (!drawnCard) onSnapCardSelect(index);
+                      }}
+                      className="disabled:cursor-not-allowed transform hover:scale-110 active:scale-95 transition-all"
+                    >
+                      <Card value={card.value} suit={card.suit} isFaceUp={false} isKnown={card.knownBy.includes(currentUser?.uid || '')} />
+                    </button>
+                  );
+                })}
               </div>
               <span className="font-bold text-xs md:text-lg">{me?.name} (You)</span>
           </div>
