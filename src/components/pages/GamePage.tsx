@@ -422,6 +422,36 @@ export const GamePage = () => {
     setDrawnCard(null);
   };
 
+  const handleSnapCardSelect = async (cardIndex: number) => {
+    if (!gameData || !gameDocId || !currentUser || drawnCard) return;
+
+    const myId = currentUser.uid;
+    const me = gameData.players[myId];
+    const myHand = [...me.hand];
+    const snappedCard = myHand[cardIndex];
+    const topOfDiscard = gameData.discardPile[0];
+
+    if (snappedCard.value === topOfDiscard.value) {
+      // Valid Snap!
+      myHand.splice(cardIndex, 1);
+      
+      const nextPlayerId = getNextPlayerId(currentUser.uid, gameData.playOrder);
+      const newDiscardPile = [snappedCard, ...gameData.discardPile];
+
+      const updates = {
+        [`players.${myId}.hand`]: myHand,
+        discardPile: newDiscardPile,
+        currentPlayerId: nextPlayerId,
+      };
+
+      const gameRef = doc(db, 'games', gameDocId);
+      await updateDoc(gameRef, updates);
+    } else {
+      // Invalid Snap - rules don't specify penalty, so we just do nothing for now
+      console.log("Invalid Snap attempt");
+    }
+  };
+
 
   if (error) return <div className="text-red-500 text-center p-8">{error}</div>;
   if (!gameData || !currentUser) return <div className="text-center p-8">Loading Game...</div>;
@@ -468,6 +498,7 @@ export const GamePage = () => {
       onSpySwapCardSelect={handleSpySwapCardSelect}
       spySwapResult={spySwapResult}
       onSpySwapComplete={handleSpySwapComplete}
+      onSnapCardSelect={handleSnapCardSelect}
     />
   );
 };

@@ -44,6 +44,7 @@ export type GameTableProps = {
   onSpySwapCardSelect: (playerId: string, cardIndex: number) => void;
   spySwapResult: { opponentCard: CardData; ownCard: CardData; opponentName: string } | null;
   onSpySwapComplete: (shouldSwap: boolean) => void;
+  onSnapCardSelect: (cardIndex: number) => void;
 };
 
 export const GameTable = ({
@@ -79,6 +80,7 @@ export const GameTable = ({
   onSpySwapCardSelect,
   spySwapResult,
   onSpySwapComplete,
+  onSnapCardSelect,
 }: GameTableProps) => {
 
   const opponents = gameData.playOrder
@@ -116,7 +118,7 @@ export const GameTable = ({
         ? "Spy & Swap: Select an opponent's card to spy on..."
         : "Spy & Swap: Select one of your cards to peek at...";
     }
-    return "Your turn. Draw a card or take from the discard pile.";
+    return "Your turn. Draw, Take from Discard, or Snap a matching card.";
   };
 
   return (
@@ -153,12 +155,13 @@ export const GameTable = ({
                 {me?.hand.map((card: CardData, index: number) => (
                   <button
                     key={index}
-                    disabled={(!isSwapping && !isPeeking && !(isBlindSwapping && blindSwapOwnIndex === null) && !(isSpySwapping && spySwapStep === 'own')) || !isMyTurn}
+                    disabled={(!isSwapping && !isPeeking && !(isBlindSwapping && blindSwapOwnIndex === null) && !(isSpySwapping && spySwapStep === 'own') && !(isMyTurn && !drawnCard)) || !isMyTurn}
                     onClick={() => {
                       if (isSwapping) onSwapCardSelect(index);
                       if (isPeeking) onPeekCardSelect(index);
                       if (isBlindSwapping && blindSwapOwnIndex === null) onBlindSwapCardSelect(currentUser?.uid || '', index);
                       if (isSpySwapping && spySwapStep === 'own') onSpySwapCardSelect(currentUser?.uid || '', index);
+                      if (isMyTurn && !isSwapping && !isPeeking && !isBlindSwapping && !isSpySwapping && !drawnCard) onSnapCardSelect(index);
                     }}
                     className="disabled:cursor-not-allowed transform hover:scale-110 transition-transform"
                   >
