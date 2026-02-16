@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { doc, onSnapshot, updateDoc, type DocumentData } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../context/AuthContext';
 import { GameTable } from '../game/GameTable';
 import { type CardData } from '../../utils/deck';
-import { getNextPlayerId } from '../../utils/gameLogic';
+import { getNextPlayerId, calculateRoundScores } from '../../utils/gameLogic';
 
 export const GamePage = () => {
   const { gameId: shortId } = useParams<{ gameId: string }>();
+  const navigate = useNavigate();
   const { currentUser } = useAuth();
 
   const [gameData, setGameData] = useState<DocumentData | null>(null);
@@ -54,9 +55,6 @@ export const GamePage = () => {
   useEffect(() => {
     if (!shortId || !currentUser) return;
 
-    // We can't query by shortId directly in a doc listener, so we'll keep the lobby logic for finding the doc ID
-    // For a real app, you might have a "games" collection and a "gameLobbies" collection
-    // but for simplicity, we find it once and then listen to the doc.
     const findGame = async () => {
       const { collection, query, where, getDocs } = await import('firebase/firestore');
       const gamesRef = collection(db, 'games');
@@ -84,6 +82,11 @@ export const GamePage = () => {
         const game = doc.data();
         setGameData(game);
 
+        if (game.status === 'round-ended') {
+          navigate(`/end?gameId=${shortId}`);
+          return;
+        }
+
         const me = game.players[currentUser.uid];
         if (game.status === 'in-progress' && !me.hasPeekedInitial) {
           setShowInitialPeek(true);
@@ -96,7 +99,7 @@ export const GamePage = () => {
     });
 
     return () => unsubscribe();
-  }, [gameDocId, currentUser]);
+  }, [gameDocId, currentUser, navigate, shortId]);
 
   const handleInitialPeekDone = async () => {
     if (gameDocId && currentUser) {
@@ -104,6 +107,44 @@ export const GamePage = () => {
       const gameRef = doc(db, 'games', gameDocId);
       await updateDoc(gameRef, { [peekKey]: true });
       setShowInitialPeek(false);
+    }
+  };
+
+  const advanceTurn = async (extraUpdates: { [key: string]: any }) => {
+    if (!gameData || !gameDocId || !currentUser) return;
+
+    const nextPlayerId = getNextPlayerId(currentUser.uid, gameData.playOrder);
+    
+    // Check for Round End
+    if (gameData.cambodiaCalledBy === nextPlayerId) {
+      const roundScores = calculateRoundScores(gameData.players, gameData.cambodiaCalledBy);
+      const updates: { [key: string]: any } = { ...extraUpdates };
+      
+      // Update totals and round history
+      Object.keys(roundScores).forEach(pid => {
+        updates[`players.${pid}.score`] = (gameData.players[pid].score || 0) + roundScores[pid];
+      });
+      
+      const newRoundData = {
+        scores: roundScores,
+        callerId: gameData.cambodiaCalledBy,
+        timestamp: new Date().toISOString()
+      };
+      
+      updates.roundHistory = [...(gameData.roundHistory || []), newRoundData];
+      updates.status = 'round-ended';
+      updates.currentPlayerId = null;
+
+      const gameRef = doc(db, 'games', gameDocId);
+      await updateDoc(gameRef, updates);
+    } else {
+      // Normal turn advancement
+      const updates = {
+        ...extraUpdates,
+        currentPlayerId: nextPlayerId,
+      };
+      const gameRef = doc(db, 'games', gameDocId);
+      await updateDoc(gameRef, updates);
     }
   };
 
@@ -125,16 +166,10 @@ export const GamePage = () => {
   const handleDiscard = async () => {
     if (!gameData || !gameDocId || !currentUser || !drawnCard) return;
 
-    const nextPlayerId = getNextPlayerId(currentUser.uid, gameData.playOrder);
-
-    const updates = {
+    await advanceTurn({
       deck: gameData.deck.slice(1),
       discardPile: [drawnCard, ...gameData.discardPile],
-      currentPlayerId: nextPlayerId,
-    };
-
-    const gameRef = doc(db, 'games', gameDocId);
-    await updateDoc(gameRef, updates);
+    });
 
     handleCloseDrawModal();
   };
@@ -155,7 +190,6 @@ export const GamePage = () => {
   
     const replacedCard = myHand[cardIndex];
     
-    // Add memory: Player now knows the card they just put in their hand
     const updatedCardToSwap = {
       ...cardToSwap,
       knownBy: Array.from(new Set([...cardToSwap.knownBy, currentUser.uid]))
@@ -165,36 +199,26 @@ export const GamePage = () => {
     let newDiscardPile = [replacedCard, ...gameData.discardPile];
     let newDeck = gameData.deck;
 
-    // Check where the card came from to update that pile correctly
     if (gameData.discardPile.length > 0 && cardToSwap === gameData.discardPile[0]) {
-      // If we took from discard, remove it from the old position
       newDiscardPile = [replacedCard, ...gameData.discardPile.slice(1)];
     } else if (drawnCard && cardToSwap === drawnCard) {
-      // If we took from deck, remove it from the deck
       newDeck = gameData.deck.slice(1);
     }
     
-    const nextPlayerId = getNextPlayerId(currentUser.uid, gameData.playOrder);
-
-    const updates: { [key: string]: any } = {
+    await advanceTurn({
       [`players.${currentUser.uid}.hand`]: myHand,
       discardPile: newDiscardPile,
       deck: newDeck,
-      currentPlayerId: nextPlayerId,
-    };
-  
-    const gameRef = doc(db, 'games', gameDocId);
-    await updateDoc(gameRef, updates);
+    });
   
     setIsSwapping(false);
     setCardToSwap(null);
-    handleCloseDrawModal(); // Also close draw modal if it was open
+    handleCloseDrawModal();
   };
 
   const handleUseAction = () => {
     if (!drawnCard) return;
 
-    // Action dispatcher
     const value = drawnCard.value;
     if (['7', '8'].includes(value)) {
         setIsPeeking(true);
@@ -206,7 +230,6 @@ export const GamePage = () => {
         setIsSpySwapping(true);
         setSpySwapStep('opponent');
     }
-    // Future actions will go here...
 
     setShowDrawCardModal(false);
   };
@@ -229,23 +252,16 @@ export const GamePage = () => {
     const updatedHand = [...me.hand];
     const peekedCard = { ...updatedHand[peekedCardIndex] };
 
-    // Add current user to the knownBy array if not already there
     if (!peekedCard.knownBy.includes(currentUser.uid)) {
       peekedCard.knownBy.push(currentUser.uid);
     }
     updatedHand[peekedCardIndex] = peekedCard;
 
-    const nextPlayerId = getNextPlayerId(currentUser.uid, gameData.playOrder);
-
-    const updates = {
+    await advanceTurn({
       [`players.${currentUser.uid}.hand`]: updatedHand,
       deck: gameData.deck.slice(1),
       discardPile: [drawnCard, ...gameData.discardPile],
-      currentPlayerId: nextPlayerId,
-    };
-
-    const gameRef = doc(db, 'games', gameDocId);
-    await updateDoc(gameRef, updates);
+    });
 
     setShowPeekResultModal(false);
     setPeekedCardResult(null);
@@ -273,23 +289,16 @@ export const GamePage = () => {
     const updatedHand = [...spiedPlayer.hand];
     const spiedCard = { ...updatedHand[spiedCardIndex] };
 
-    // Add current user to the knownBy array if not already there
     if (!spiedCard.knownBy.includes(currentUser.uid)) {
       spiedCard.knownBy.push(currentUser.uid);
     }
     updatedHand[spiedCardIndex] = spiedCard;
     
-    const nextPlayerId = getNextPlayerId(currentUser.uid, gameData.playOrder);
-
-    const updates = {
+    await advanceTurn({
       [`players.${spiedCardPlayerId}.hand`]: updatedHand,
       deck: gameData.deck.slice(1),
       discardPile: [drawnCard, ...gameData.discardPile],
-      currentPlayerId: nextPlayerId,
-    };
-    
-    const gameRef = doc(db, 'games', gameDocId);
-    await updateDoc(gameRef, updates);
+    });
 
     setShowSpyResultModal(false);
     setSpiedCardResult(null);
@@ -303,10 +312,8 @@ export const GamePage = () => {
     if (!gameData || !gameDocId || !currentUser || !drawnCard) return;
 
     if (playerId === currentUser.uid) {
-      // Step 1: Select own card
       setBlindSwapOwnIndex(cardIndex);
     } else {
-      // Step 2: Select opponent card and perform swap
       if (blindSwapOwnIndex === null) return;
 
       const myId = currentUser.uid;
@@ -321,18 +328,12 @@ export const GamePage = () => {
       myHand[blindSwapOwnIndex] = oppCard;
       oppHand[cardIndex] = myCard;
 
-      const nextPlayerId = getNextPlayerId(currentUser.uid, gameData.playOrder);
-
-      const updates = {
+      await advanceTurn({
         [`players.${myId}.hand`]: myHand,
         [`players.${oppId}.hand`]: oppHand,
         deck: gameData.deck.slice(1),
         discardPile: [drawnCard, ...gameData.discardPile],
-        currentPlayerId: nextPlayerId,
-      };
-
-      const gameRef = doc(db, 'games', gameDocId);
-      await updateDoc(gameRef, updates);
+      });
 
       setIsBlindSwapping(false);
       setBlindSwapOwnIndex(null);
@@ -370,7 +371,7 @@ export const GamePage = () => {
     const myId = currentUser.uid;
     const oppId = spySwapOpponentInfo.playerId;
 
-    const updates: { [key: string]: any } = {};
+    const handUpdates: { [key: string]: any } = {};
 
     if (shouldSwap) {
       const myHand = [...gameData.players[myId].hand];
@@ -379,17 +380,15 @@ export const GamePage = () => {
       const myCard = { ...myHand[spySwapOwnIndex] };
       const oppCard = { ...oppHand[spySwapOpponentInfo.cardIndex] };
 
-      // Add memory: player now knows both cards they just handled
       if (!myCard.knownBy.includes(myId)) myCard.knownBy.push(myId);
       if (!oppCard.knownBy.includes(myId)) oppCard.knownBy.push(myId);
 
       myHand[spySwapOwnIndex] = oppCard;
       oppHand[spySwapOpponentInfo.cardIndex] = myCard;
 
-      updates[`players.${myId}.hand`] = myHand;
-      updates[`players.${oppId}.hand`] = oppHand;
+      handUpdates[`players.${myId}.hand`] = myHand;
+      handUpdates[`players.${oppId}.hand`] = oppHand;
     } else {
-      // Even if not swapped, add memory for the cards seen
       const myHand = [...gameData.players[myId].hand];
       const oppHand = [...gameData.players[oppId].hand];
       
@@ -402,17 +401,15 @@ export const GamePage = () => {
       myHand[spySwapOwnIndex] = myCard;
       oppHand[spySwapOpponentInfo.cardIndex] = oppCard;
 
-      updates[`players.${myId}.hand`] = myHand;
-      updates[`players.${oppId}.hand`] = oppHand;
+      handUpdates[`players.${myId}.hand`] = myHand;
+      handUpdates[`players.${oppId}.hand`] = oppHand;
     }
 
-    const nextPlayerId = getNextPlayerId(currentUser.uid, gameData.playOrder);
-    updates.deck = gameData.deck.slice(1);
-    updates.discardPile = [drawnCard, ...gameData.discardPile];
-    updates.currentPlayerId = nextPlayerId;
-
-    const gameRef = doc(db, 'games', gameDocId);
-    await updateDoc(gameRef, updates);
+    await advanceTurn({
+      ...handUpdates,
+      deck: gameData.deck.slice(1),
+      discardPile: [drawnCard, ...gameData.discardPile],
+    });
 
     setIsSpySwapping(false);
     setSpySwapStep('idle');
@@ -432,22 +429,14 @@ export const GamePage = () => {
     const topOfDiscard = gameData.discardPile[0];
 
     if (snappedCard.value === topOfDiscard.value) {
-      // Valid Snap!
       myHand.splice(cardIndex, 1);
-      
-      const nextPlayerId = getNextPlayerId(currentUser.uid, gameData.playOrder);
       const newDiscardPile = [snappedCard, ...gameData.discardPile];
 
-      const updates = {
+      await advanceTurn({
         [`players.${myId}.hand`]: myHand,
         discardPile: newDiscardPile,
-        currentPlayerId: nextPlayerId,
-      };
-
-      const gameRef = doc(db, 'games', gameDocId);
-      await updateDoc(gameRef, updates);
+      });
     } else {
-      // Invalid Snap - rules don't specify penalty, so we just do nothing for now
       console.log("Invalid Snap attempt");
     }
   };
@@ -455,15 +444,9 @@ export const GamePage = () => {
   const handleCallCambodia = async () => {
     if (!gameData || !gameDocId || !currentUser || drawnCard || gameData.cambodiaCalledBy) return;
 
-    const nextPlayerId = getNextPlayerId(currentUser.uid, gameData.playOrder);
-    
-    const updates = {
+    await advanceTurn({
       cambodiaCalledBy: currentUser.uid,
-      currentPlayerId: nextPlayerId,
-    };
-
-    const gameRef = doc(db, 'games', gameDocId);
-    await updateDoc(gameRef, updates);
+    });
   };
 
 
