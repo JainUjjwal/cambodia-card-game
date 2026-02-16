@@ -43,6 +43,13 @@ export const GamePage = () => {
   const [isBlindSwapping, setIsBlindSwapping] = useState(false);
   const [blindSwapOwnIndex, setBlindSwapOwnIndex] = useState<number | null>(null);
 
+  // State for Spy and Swap action (Black King)
+  const [isSpySwapping, setIsSpySwapping] = useState(false);
+  const [spySwapStep, setSpySwapStep] = useState<'opponent' | 'own' | 'decision' | 'idle'>('opponent');
+  const [spySwapOpponentInfo, setSpySwapOpponentId] = useState<{ playerId: string; cardIndex: number } | null>(null);
+  const [spySwapOwnIndex, setSpySwapOwnIndex] = useState<number | null>(null);
+  const [spySwapResult, setSpySwapResult] = useState<{ opponentCard: CardData; ownCard: CardData; opponentName: string } | null>(null);
+
 
   useEffect(() => {
     if (!shortId || !currentUser) return;
@@ -195,6 +202,9 @@ export const GamePage = () => {
         setIsSpying(true);
     } else if (['J', 'Q'].includes(value)) {
         setIsBlindSwapping(true);
+    } else if (value === 'K' && (drawnCard.suit === '♠' || drawnCard.suit === '♣')) {
+        setIsSpySwapping(true);
+        setSpySwapStep('opponent');
     }
     // Future actions will go here...
 
@@ -330,6 +340,88 @@ export const GamePage = () => {
     }
   };
 
+  const handleSpySwapCardSelect = (playerId: string, cardIndex: number) => {
+    if (!gameData || !currentUser) return;
+
+    if (spySwapStep === 'opponent') {
+      setSpySwapOpponentId({ playerId, cardIndex });
+      setSpySwapStep('own');
+    } else if (spySwapStep === 'own') {
+      if (!spySwapOpponentInfo) return;
+
+      const oppPlayer = gameData.players[spySwapOpponentInfo.playerId];
+      const oppCard = oppPlayer.hand[spySwapOpponentInfo.cardIndex];
+      const me = gameData.players[currentUser.uid];
+      const myCard = me.hand[cardIndex];
+
+      setSpySwapOwnIndex(cardIndex);
+      setSpySwapResult({
+        opponentCard: oppCard,
+        ownCard: myCard,
+        opponentName: oppPlayer.name,
+      });
+      setSpySwapStep('decision');
+    }
+  };
+
+  const handleSpySwapComplete = async (shouldSwap: boolean) => {
+    if (!gameData || !gameDocId || !currentUser || !drawnCard || !spySwapOpponentInfo || spySwapOwnIndex === null) return;
+
+    const myId = currentUser.uid;
+    const oppId = spySwapOpponentInfo.playerId;
+
+    const updates: { [key: string]: any } = {};
+
+    if (shouldSwap) {
+      const myHand = [...gameData.players[myId].hand];
+      const oppHand = [...gameData.players[oppId].hand];
+
+      const myCard = { ...myHand[spySwapOwnIndex] };
+      const oppCard = { ...oppHand[spySwapOpponentInfo.cardIndex] };
+
+      // Add memory: player now knows both cards they just handled
+      if (!myCard.knownBy.includes(myId)) myCard.knownBy.push(myId);
+      if (!oppCard.knownBy.includes(myId)) oppCard.knownBy.push(myId);
+
+      myHand[spySwapOwnIndex] = oppCard;
+      oppHand[spySwapOpponentInfo.cardIndex] = myCard;
+
+      updates[`players.${myId}.hand`] = myHand;
+      updates[`players.${oppId}.hand`] = oppHand;
+    } else {
+      // Even if not swapped, add memory for the cards seen
+      const myHand = [...gameData.players[myId].hand];
+      const oppHand = [...gameData.players[oppId].hand];
+      
+      const myCard = { ...myHand[spySwapOwnIndex] };
+      const oppCard = { ...oppHand[spySwapOpponentInfo.cardIndex] };
+
+      if (!myCard.knownBy.includes(myId)) myCard.knownBy.push(myId);
+      if (!oppCard.knownBy.includes(myId)) oppCard.knownBy.push(myId);
+
+      myHand[spySwapOwnIndex] = myCard;
+      oppHand[spySwapOpponentInfo.cardIndex] = oppCard;
+
+      updates[`players.${myId}.hand`] = myHand;
+      updates[`players.${oppId}.hand`] = oppHand;
+    }
+
+    const nextPlayerId = getNextPlayerId(currentUser.uid, gameData.playOrder);
+    updates.deck = gameData.deck.slice(1);
+    updates.discardPile = [drawnCard, ...gameData.discardPile];
+    updates.currentPlayerId = nextPlayerId;
+
+    const gameRef = doc(db, 'games', gameDocId);
+    await updateDoc(gameRef, updates);
+
+    setIsSpySwapping(false);
+    setSpySwapStep('idle');
+    setSpySwapOpponentId(null);
+    setSpySwapOwnIndex(null);
+    setSpySwapResult(null);
+    setDrawnCard(null);
+  };
+
 
   if (error) return <div className="text-red-500 text-center p-8">{error}</div>;
   if (!gameData || !currentUser) return <div className="text-center p-8">Loading Game...</div>;
@@ -371,6 +463,11 @@ export const GamePage = () => {
       isBlindSwapping={isBlindSwapping}
       blindSwapOwnIndex={blindSwapOwnIndex}
       onBlindSwapCardSelect={handleBlindSwapCardSelect}
+      isSpySwapping={isSpySwapping}
+      spySwapStep={spySwapStep}
+      onSpySwapCardSelect={handleSpySwapCardSelect}
+      spySwapResult={spySwapResult}
+      onSpySwapComplete={handleSpySwapComplete}
     />
   );
 };

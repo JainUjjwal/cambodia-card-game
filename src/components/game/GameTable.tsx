@@ -7,6 +7,7 @@ import InitialPeekModal from './InitialPeekModal';
 import DrawCardModal from './DrawCardModal';
 import PeekResultModal from './PeekResultModal';
 import SpyResultModal from './SpyResultModal';
+import SpySwapModal from './SpySwapModal';
 import { type CardData } from '../../utils/deck';
 
 // Define the props for the GameTable component
@@ -38,6 +39,11 @@ export type GameTableProps = {
   isBlindSwapping: boolean;
   blindSwapOwnIndex: number | null;
   onBlindSwapCardSelect: (playerId: string, cardIndex: number) => void;
+  isSpySwapping: boolean;
+  spySwapStep: 'opponent' | 'own' | 'decision' | 'idle';
+  onSpySwapCardSelect: (playerId: string, cardIndex: number) => void;
+  spySwapResult: { opponentCard: CardData; ownCard: CardData; opponentName: string } | null;
+  onSpySwapComplete: (shouldSwap: boolean) => void;
 };
 
 export const GameTable = ({
@@ -68,6 +74,11 @@ export const GameTable = ({
   isBlindSwapping,
   blindSwapOwnIndex,
   onBlindSwapCardSelect,
+  isSpySwapping,
+  spySwapStep,
+  onSpySwapCardSelect,
+  spySwapResult,
+  onSpySwapComplete,
 }: GameTableProps) => {
 
   const opponents = gameData.playOrder
@@ -100,6 +111,11 @@ export const GameTable = ({
         ? "Blind Swap: Select one of your cards..." 
         : "Blind Swap: Select an opponent's card to swap with...";
     }
+    if (isSpySwapping) {
+      return spySwapStep === 'opponent'
+        ? "Spy & Swap: Select an opponent's card to spy on..."
+        : "Spy & Swap: Select one of your cards to peek at...";
+    }
     return "Your turn. Draw a card or take from the discard pile.";
   };
 
@@ -119,8 +135,9 @@ export const GameTable = ({
               onCardSelect={(playerId, cardIdx) => {
                 if (isSpying) onSpyCardSelect(playerId, cardIdx);
                 if (isBlindSwapping && blindSwapOwnIndex !== null) onBlindSwapCardSelect(playerId, cardIdx);
+                if (isSpySwapping && spySwapStep === 'opponent') onSpySwapCardSelect(playerId, cardIdx);
               }}
-              isSpying={(isSpying || (isBlindSwapping && blindSwapOwnIndex !== null)) && isMyTurn}
+              isSpying={(isSpying || (isBlindSwapping && blindSwapOwnIndex !== null) || (isSpySwapping && spySwapStep === 'opponent')) && isMyTurn}
             />
           ))}
           
@@ -136,11 +153,12 @@ export const GameTable = ({
                 {me?.hand.map((card: CardData, index: number) => (
                   <button
                     key={index}
-                    disabled={(!isSwapping && !isPeeking && !(isBlindSwapping && blindSwapOwnIndex === null)) || !isMyTurn}
+                    disabled={(!isSwapping && !isPeeking && !(isBlindSwapping && blindSwapOwnIndex === null) && !(isSpySwapping && spySwapStep === 'own')) || !isMyTurn}
                     onClick={() => {
                       if (isSwapping) onSwapCardSelect(index);
                       if (isPeeking) onPeekCardSelect(index);
                       if (isBlindSwapping && blindSwapOwnIndex === null) onBlindSwapCardSelect(currentUser?.uid || '', index);
+                      if (isSpySwapping && spySwapStep === 'own') onSpySwapCardSelect(currentUser?.uid || '', index);
                     }}
                     className="disabled:cursor-not-allowed transform hover:scale-110 transition-transform"
                   >
@@ -184,6 +202,15 @@ export const GameTable = ({
             card={spiedCardResult.card} 
             playerName={spiedCardResult.playerName} 
             onClose={onCloseSpyResultModal} 
+          />
+        )}
+        {isSpySwapping && spySwapStep === 'decision' && spySwapResult && (
+          <SpySwapModal 
+            opponentCard={spySwapResult.opponentCard}
+            ownCard={spySwapResult.ownCard}
+            opponentName={spySwapResult.opponentName}
+            onSwap={() => onSpySwapComplete(true)}
+            onKeep={() => onSpySwapComplete(false)}
           />
         )}
     </div>
