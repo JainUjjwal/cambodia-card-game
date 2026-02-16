@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { doc, onSnapshot, type DocumentData } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { Crown, Home, RotateCw, Loader2 } from 'lucide-react';
+import { Crown, Home, RotateCw, Loader2, Trophy, Zap, Star } from 'lucide-react';
 
 const GameEndScreen = () => {
   const [searchParams] = useSearchParams();
@@ -65,6 +65,19 @@ const GameEndScreen = () => {
   const winner = sortedByScore[0];
   const isGameOver = gameData.status === 'finished';
 
+  // Stats Calculations
+  const bestRound = gameData.roundHistory?.reduce((best: any, round: any) => {
+    const roundMin = Math.min(...Object.values(round.scores) as number[]);
+    return (!best || roundMin < best.score) ? { score: roundMin, roundIdx: gameData.roundHistory.indexOf(round) } : best;
+  }, null);
+
+  const callStats = players.map(p => ({
+    name: p.name,
+    successfulCalls: gameData.roundHistory?.filter((r: any) => r.callerId === p.id && r.scores[p.id] === 0).length || 0
+  })).sort((a, b) => b.successfulCalls - a.successfulCalls);
+
+  const topCaller = callStats[0]?.successfulCalls > 0 ? callStats[0] : null;
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-slate-800 to-slate-900 p-4 text-white">
       <div className="w-full max-w-2xl mx-auto bg-slate-700 bg-opacity-50 rounded-2xl shadow-2xl p-6 md:p-8 border border-slate-600 text-center">
@@ -86,10 +99,37 @@ const GameEndScreen = () => {
           {sortedByScore.slice(1, 3).map((p, i) => (
             <div key={p.id} className="flex items-center justify-center gap-3 text-lg">
               <span className="text-xl">{i === 0 ? '🥈' : '🥉'}</span>
-              <span className="font-semibold text-slate-200">{i + 1 + 1}st: {p.name}</span>
+              <span className="font-semibold text-slate-200">{i + 2}nd: {p.name}</span>
               <span className="text-slate-400">({p.score} pts)</span>
             </div>
           ))}
+        </div>
+
+        {/* Game Highlights */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+          {bestRound && (
+            <div className="bg-slate-800/50 p-4 rounded-xl border border-cyan-500/30 flex items-center gap-4">
+              <div className="bg-cyan-500/20 p-2 rounded-lg text-cyan-400">
+                <Zap size={24} />
+              </div>
+              <div className="text-left">
+                <p className="text-xs text-slate-400 uppercase font-bold tracking-wider">Best Round</p>
+                <p className="text-lg font-bold">{bestRound.score} Points</p>
+              </div>
+            </div>
+          )}
+          {topCaller && (
+            <div className="bg-slate-800/50 p-4 rounded-xl border border-amber-500/30 flex items-center gap-4">
+              <div className="bg-amber-500/20 p-2 rounded-lg text-amber-400">
+                <Star size={24} />
+              </div>
+              <div className="text-left">
+                <p className="text-xs text-slate-400 uppercase font-bold tracking-wider">Master Deceiver</p>
+                <p className="text-lg font-bold">{topCaller.name}</p>
+                <p className="text-[10px] text-slate-500">{topCaller.successfulCalls} successful calls</p>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="overflow-x-auto rounded-lg border border-slate-600 mb-8">

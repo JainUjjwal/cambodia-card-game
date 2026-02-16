@@ -134,6 +134,10 @@ export const GamePage = () => {
       const newRoundData = {
         scores: roundScores,
         callerId: gameData.cambodiaCalledBy,
+        hands: Object.keys(gameData.players).reduce((acc: any, pid) => {
+          acc[pid] = gameData.players[pid].hand;
+          return acc;
+        }, {}),
         timestamp: new Date().toISOString()
       };
       
