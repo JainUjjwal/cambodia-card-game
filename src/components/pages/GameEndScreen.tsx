@@ -1,16 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { doc, onSnapshot, type DocumentData } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, type DocumentData } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { useAuth } from '../../context/AuthContext';
 import { Crown, Home, RotateCw, Loader2, Trophy, Zap, Star } from 'lucide-react';
+import { createDeck, shuffleDeck } from '../../utils/deck';
 
 const GameEndScreen = () => {
   const [searchParams] = useSearchParams();
   const gameId = searchParams.get('gameId');
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
   
   const [gameData, setGameData] = useState<DocumentData | null>(null);
+  const [gameDocId, setGameDocId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isRestarting, setIsRestarting] = useState(false);
 
   useEffect(() => {
     if (!gameId) return;
@@ -23,10 +28,17 @@ const GameEndScreen = () => {
       const querySnapshot = await getDocs(q);
       
       if (!querySnapshot.empty) {
-        const gameDocId = querySnapshot.docs[0].id;
-        const unsubscribe = onSnapshot(doc(db, 'games', gameDocId), (doc) => {
+        const docId = querySnapshot.docs[0].id;
+        setGameDocId(docId);
+        const unsubscribe = onSnapshot(doc(db, 'games', docId), (doc) => {
           if (doc.exists()) {
-            setGameData(doc.data());
+            const data = doc.data();
+            setGameData(data);
+            
+            // If host restarted, redirect back to game
+            if (data.status === 'in-progress') {
+              navigate(`/game/${gameId}`);
+            }
           }
           setLoading(false);
         });
@@ -36,7 +48,54 @@ const GameEndScreen = () => {
       }
     };
     findAndListen();
-  }, [gameId]);
+  }, [gameId, navigate]);
+
+  const handleRestart = async (resetScores: boolean) => {
+    if (!gameDocId || !gameData || !currentUser || currentUser.uid !== gameData.hostId) return;
+
+    setIsRestarting(true);
+    try {
+      const playerIds = gameData.playOrder;
+      const fullDeck = createDeck();
+      const shuffledDeck = shuffleDeck(fullDeck);
+
+      const updates: { [key: string]: any } = {};
+      
+      playerIds.forEach((playerId: string) => {
+        const dealtCards = shuffledDeck.splice(0, 4);
+        
+        // Mark the bottom two cards as known by this specific player
+        dealtCards[2].knownBy = [playerId];
+        dealtCards[3].knownBy = [playerId];
+
+        updates[`players.${playerId}.hand`] = dealtCards;
+        updates[`players.${playerId}.hasPeekedInitial`] = false;
+        
+        if (resetScores) {
+          updates[`players.${playerId}.score`] = 0;
+        }
+      });
+
+      updates['deck'] = shuffledDeck.slice(1);
+      updates['discardPile'] = [shuffledDeck[0]];
+      updates['status'] = 'in-progress';
+      updates['currentPlayerId'] = gameData.playOrder[0];
+      updates['cambodiaCalledBy'] = null;
+
+      if (resetScores) {
+        updates['roundHistory'] = [];
+      }
+
+      const gameRef = doc(db, 'games', gameDocId);
+      await updateDoc(gameRef, updates);
+      // Navigation is handled by the onSnapshot listener
+    } catch (error) {
+      console.error("Error restarting game:", error);
+      alert("Failed to restart game.");
+    } finally {
+      setIsRestarting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -64,6 +123,7 @@ const GameEndScreen = () => {
   const sortedByScore = [...players].sort((a, b) => a.score - b.score);
   const winner = sortedByScore[0];
   const isGameOver = gameData.status === 'finished';
+  const amIHost = currentUser?.uid === gameData.hostId;
 
   // Stats Calculations
   const bestRound = gameData.roundHistory?.reduce((best: any, round: any) => {
@@ -192,14 +252,22 @@ const GameEndScreen = () => {
 
         <div className="mt-8 space-y-4">
           {!isGameOver ? (
-            <button className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg flex items-center justify-center gap-2 transform hover:scale-105 transition-transform duration-200 ease-in-out disabled:bg-slate-600 disabled:cursor-not-allowed disabled:transform-none">
-              <RotateCw size={20} />
-              <span>Next Round (Host only)</span>
+            <button 
+              onClick={() => handleRestart(false)}
+              disabled={!amIHost || isRestarting}
+              className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg flex items-center justify-center gap-2 transform hover:scale-105 transition-transform duration-200 ease-in-out disabled:bg-slate-600 disabled:cursor-not-allowed disabled:transform-none"
+            >
+              <RotateCw size={20} className={isRestarting ? "animate-spin" : ""} />
+              <span>{isRestarting ? 'Starting...' : 'Next Round (Host only)'}</span>
             </button>
           ) : (
-            <button onClick={() => navigate('/')} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg flex items-center justify-center gap-2 transform hover:scale-105 transition-transform duration-200 ease-in-out">
-              <RotateCw size={20} />
-              <span>New Game / Play Again</span>
+            <button 
+              onClick={() => handleRestart(true)}
+              disabled={!amIHost || isRestarting}
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg flex items-center justify-center gap-2 transform hover:scale-105 transition-transform duration-200 ease-in-out disabled:bg-slate-600 disabled:cursor-not-allowed disabled:transform-none"
+            >
+              <RotateCw size={20} className={isRestarting ? "animate-spin" : ""} />
+              <span>{isRestarting ? 'Restarting...' : 'Restart New Game (Host only)'}</span>
             </button>
           )}
           <button onClick={() => navigate('/')} className="w-full border-2 border-cyan-200 text-cyan-100 font-bold py-3 px-4 rounded-lg shadow-lg flex items-center justify-center gap-2 transform hover:scale-105 transition-transform duration-200 ease-in-out">
