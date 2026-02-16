@@ -66,6 +66,9 @@ describe('GameTable Component', () => {
     showSpyResultModal: false,
     spiedCardResult: null,
     onCloseSpyResultModal: vi.fn(),
+    isBlindSwapping: false,
+    blindSwapOwnIndex: null,
+    onBlindSwapCardSelect: vi.fn(),
   };
 
   it('should display correct instruction when it is my turn', () => {
@@ -95,6 +98,39 @@ describe('GameTable Component', () => {
   it('should display spying instruction', () => {
     render(<GameTable {...defaultProps} isSpying={true} />);
     expect(screen.getByText("Select an opponent's card to spy on...")).toBeInTheDocument();
+  });
+
+  it('should display blind swap initial instruction', () => {
+    render(<GameTable {...defaultProps} isBlindSwapping={true} />);
+    expect(screen.getByText('Blind Swap: Select one of your cards...')).toBeInTheDocument();
+  });
+
+  it('should display blind swap opponent selection instruction', () => {
+    render(<GameTable {...defaultProps} isBlindSwapping={true} blindSwapOwnIndex={0} />);
+    expect(screen.getByText("Blind Swap: Select an opponent's card to swap with...")).toBeInTheDocument();
+  });
+
+  it('should call onBlindSwapCardSelect when my card is clicked during phase 1', () => {
+    render(<GameTable {...defaultProps} isBlindSwapping={true} />);
+    const handCardButtons = screen.getAllByRole('button').filter(b => 
+      !b.hasAttribute('disabled') && b.textContent === 'hidden'
+    );
+    fireEvent.click(handCardButtons[0]);
+    expect(defaultProps.onBlindSwapCardSelect).toHaveBeenCalledWith('me', 0);
+  });
+
+  it('should call onBlindSwapCardSelect when opponent card is clicked during phase 2', () => {
+    render(<GameTable {...defaultProps} isBlindSwapping={true} blindSwapOwnIndex={0} />);
+    // Find opponent card (there should only be one enabled)
+    const allButtons = screen.getAllByRole('button');
+    const enabledOpponentCard = allButtons.find(b => !b.hasAttribute('disabled') && b.textContent === 'hidden' && b.closest('div.col-start-2.row-start-1'));
+    
+    if (enabledOpponentCard) {
+      fireEvent.click(enabledOpponentCard);
+      expect(defaultProps.onBlindSwapCardSelect).toHaveBeenCalledWith('opp-1', 0);
+    } else {
+      throw new Error('Opponent card button not found');
+    }
   });
 
   it('should render opponent names and their cards', () => {

@@ -116,3 +116,69 @@ test('action flow: peek and spy', async ({ browser }) => {
   await context1.close();
   await context2.close();
 });
+
+test('action flow: blind swap', async ({ browser }) => {
+  const { page1, page2, context1, context2 } = await setupGame(browser);
+
+  let actionFound = false;
+  let attempts = 0;
+  const maxAttempts = 15;
+
+  while (!actionFound && attempts < maxAttempts) {
+    await page1.getByRole('button', { name: /Draw Card/i }).click();
+    const modal = page1.locator('div.fixed.inset-0.bg-black.bg-opacity-75');
+    await expect(modal).toBeVisible();
+
+    const actionButton = page1.getByRole('button', { name: /Use Action/i });
+    const isEnabled = await actionButton.isEnabled();
+
+    if (isEnabled) {
+      const cardValue = await modal.locator('div.font-bold.text-5xl').innerText();
+      console.log(`Found action card: ${cardValue}`);
+      
+      if (['J', 'Q'].includes(cardValue)) {
+        // Test Blind Swap
+        await actionButton.click();
+        await expect(modal).not.toBeVisible();
+        await expect(page1.getByText('Blind Swap: Select one of your cards...')).toBeVisible();
+        
+        // Step 1: Select own card
+        const myFirstCard = page1.locator('div.col-span-3.row-start-3 button').first();
+        await expect(myFirstCard).toBeEnabled();
+        await page1.waitForTimeout(500); // UI Settle
+        await myFirstCard.click();
+
+        await expect(page1.getByText("Blind Swap: Select an opponent's card to swap with...")).toBeVisible();
+
+        // Step 2: Select opponent card
+        const opponentFirstCard = page1.locator('div.col-start-2.row-start-1 button').first();
+        await expect(opponentFirstCard).toBeEnabled();
+        await page1.waitForTimeout(500); // UI Settle
+        await opponentFirstCard.click();
+        
+        // Verify turn advanced
+        await expect(page1.getByText(/Waiting for Player 2/i)).toBeVisible({ timeout: 10000 });
+        actionFound = true;
+      } else {
+        await page1.getByRole('button', { name: /Discard/i }).click();
+      }
+    } else {
+      await page1.getByRole('button', { name: /Discard/i }).click();
+    }
+
+    if (!actionFound) {
+      // Pass turn
+      await expect(page2.getByText('Your turn')).toBeVisible();
+      await page2.getByRole('button', { name: /Draw Card/i }).click();
+      await page2.getByRole('button', { name: /Discard/i }).click();
+      attempts++;
+    }
+  }
+
+  if (!actionFound) {
+    console.log('Could not find a Jack/Queen in 15 attempts.');
+  }
+
+  await context1.close();
+  await context2.close();
+});
