@@ -63,16 +63,21 @@ const GameEndScreen = () => {
 
   const sortedByScore = [...players].sort((a, b) => a.score - b.score);
   const winner = sortedByScore[0];
+  const isGameOver = gameData.status === 'finished';
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-slate-800 to-slate-900 p-4 text-white">
       <div className="w-full max-w-2xl mx-auto bg-slate-700 bg-opacity-50 rounded-2xl shadow-2xl p-6 md:p-8 border border-slate-600 text-center">
         
-        <h1 className="text-4xl font-bold text-slate-300 mb-2">ROUND ENDED</h1>
+        <h1 className="text-4xl font-bold text-slate-300 mb-2">
+          {isGameOver ? 'GAME OVER' : 'ROUND ENDED'}
+        </h1>
         
         <div className="flex items-center justify-center gap-3 my-4">
           <Crown className="text-yellow-400" size={32} />
-          <p className="text-2xl font-bold text-yellow-300">{winner.name} is leading!</p>
+          <p className="text-2xl font-bold text-yellow-300">
+            {winner.name} {isGameOver ? 'Wins!' : 'is leading!'}
+          </p>
           <Crown className="text-yellow-400" size={32} />
         </div>
 
@@ -146,10 +151,17 @@ const GameEndScreen = () => {
         </div>
 
         <div className="mt-8 space-y-4">
-          <button className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg flex items-center justify-center gap-2 transform hover:scale-105 transition-transform duration-200 ease-in-out disabled:bg-slate-600 disabled:cursor-not-allowed disabled:transform-none">
-            <RotateCw size={20} />
-            <span>Next Round (Host only)</span>
-          </button>
+          {!isGameOver ? (
+            <button className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg flex items-center justify-center gap-2 transform hover:scale-105 transition-transform duration-200 ease-in-out disabled:bg-slate-600 disabled:cursor-not-allowed disabled:transform-none">
+              <RotateCw size={20} />
+              <span>Next Round (Host only)</span>
+            </button>
+          ) : (
+            <button onClick={() => navigate('/')} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg flex items-center justify-center gap-2 transform hover:scale-105 transition-transform duration-200 ease-in-out">
+              <RotateCw size={20} />
+              <span>New Game / Play Again</span>
+            </button>
+          )}
           <button onClick={() => navigate('/')} className="w-full border-2 border-cyan-200 text-cyan-100 font-bold py-3 px-4 rounded-lg shadow-lg flex items-center justify-center gap-2 transform hover:scale-105 transition-transform duration-200 ease-in-out">
             <Home size={20} />
             <span>Leave to Main Menu</span>

@@ -85,7 +85,7 @@ export const GamePage = () => {
         const game = doc.data();
         setGameData(game);
 
-        if (game.status === 'round-ended') {
+        if (game.status === 'round-ended' || game.status === 'finished') {
           navigate(`/end?gameId=${shortId}`);
           return;
         }
@@ -123,9 +123,12 @@ export const GamePage = () => {
       const roundScores = calculateRoundScores(gameData.players, gameData.cambodiaCalledBy);
       const updates: { [key: string]: any } = { ...extraUpdates };
       
+      let isGameOver = false;
       // Update totals and round history
       Object.keys(roundScores).forEach(pid => {
-        updates[`players.${pid}.score`] = (gameData.players[pid].score || 0) + roundScores[pid];
+        const newScore = (gameData.players[pid].score || 0) + roundScores[pid];
+        updates[`players.${pid}.score`] = newScore;
+        if (newScore >= 100) isGameOver = true;
       });
       
       const newRoundData = {
@@ -135,7 +138,7 @@ export const GamePage = () => {
       };
       
       updates.roundHistory = [...(gameData.roundHistory || []), newRoundData];
-      updates.status = 'round-ended';
+      updates.status = isGameOver ? 'finished' : 'round-ended';
       updates.currentPlayerId = null;
 
       const gameRef = doc(db, 'games', gameDocId);
