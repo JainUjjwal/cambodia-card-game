@@ -11,7 +11,8 @@ type DrawCardModalProps = {
 };
 
 const DrawCardModal = ({ card, onDiscard, onSwap, onUseAction }: DrawCardModalProps) => {
-  const hasAction = ['7', '8', '9', '10', 'J', 'Q', 'K'].includes(card.value);
+  const isBlackKing = card.value === 'K' && (card.suit === '♠' || card.suit === '♣');
+  const hasAction = ['7', '8', '9', '10', 'J', 'Q'].includes(card.value) || isBlackKing;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">

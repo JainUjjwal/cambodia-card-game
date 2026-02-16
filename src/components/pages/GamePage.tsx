@@ -263,6 +263,13 @@ export const GamePage = () => {
   const handleClosePeekResultModal = async () => {
     if (!gameData || !gameDocId || !currentUser || !drawnCard || peekedCardIndex === null) return;
 
+    // Reset local state IMMEDIATELY to unlock UI
+    setShowPeekResultModal(false);
+    setPeekedCardResult(null);
+    setPeekedCardIndex(null);
+    setIsPeeking(false);
+    setDrawnCard(null);
+
     const me = gameData.players[currentUser.uid];
     const updatedHand = [...me.hand];
     const peekedCard = { ...updatedHand[peekedCardIndex] };
@@ -277,12 +284,6 @@ export const GamePage = () => {
       deck: gameData.deck.slice(1),
       discardPile: [drawnCard, ...gameData.discardPile],
     });
-
-    setShowPeekResultModal(false);
-    setPeekedCardResult(null);
-    setPeekedCardIndex(null);
-    setIsPeeking(false);
-    setDrawnCard(null);
   };
 
   const handleSpyCardSelect = (spiedPlayerId: string, spiedCardIndex: number) => {
@@ -300,6 +301,14 @@ export const GamePage = () => {
   const handleCloseSpyResultModal = async () => {
     if (!gameData || !gameDocId || !currentUser || !drawnCard || spiedCardPlayerId === null || spiedCardIndex === null) return;
 
+    // Reset local state IMMEDIATELY
+    setShowSpyResultModal(false);
+    setSpiedCardResult(null);
+    setSpiedCardPlayerId(null);
+    setSpiedCardIndex(null);
+    setIsSpying(false);
+    setDrawnCard(null);
+
     const spiedPlayer = { ...gameData.players[spiedCardPlayerId] };
     const updatedHand = [...spiedPlayer.hand];
     const spiedCard = { ...updatedHand[spiedCardIndex] };
@@ -314,13 +323,6 @@ export const GamePage = () => {
       deck: gameData.deck.slice(1),
       discardPile: [drawnCard, ...gameData.discardPile],
     });
-
-    setShowSpyResultModal(false);
-    setSpiedCardResult(null);
-    setSpiedCardPlayerId(null);
-    setSpiedCardIndex(null);
-    setIsSpying(false);
-    setDrawnCard(null);
   };
 
   const handleBlindSwapCardSelect = async (playerId: string, cardIndex: number) => {
@@ -383,6 +385,14 @@ export const GamePage = () => {
   const handleSpySwapComplete = async (shouldSwap: boolean) => {
     if (!gameData || !gameDocId || !currentUser || !drawnCard || !spySwapOpponentInfo || spySwapOwnIndex === null) return;
 
+    // Reset local state IMMEDIATELY
+    setIsSpySwapping(false);
+    setSpySwapStep('idle');
+    setSpySwapOpponentId(null);
+    setSpySwapOwnIndex(null);
+    setSpySwapResult(null);
+    setDrawnCard(null);
+
     const myId = currentUser.uid;
     const oppId = spySwapOpponentInfo.playerId;
 
@@ -425,13 +435,6 @@ export const GamePage = () => {
       deck: gameData.deck.slice(1),
       discardPile: [drawnCard, ...gameData.discardPile],
     });
-
-    setIsSpySwapping(false);
-    setSpySwapStep('idle');
-    setSpySwapOpponentId(null);
-    setSpySwapOwnIndex(null);
-    setSpySwapResult(null);
-    setDrawnCard(null);
   };
 
   const handleSnapCardSelect = async (cardIndex: number) => {
