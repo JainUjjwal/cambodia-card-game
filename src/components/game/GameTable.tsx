@@ -111,7 +111,6 @@ export const GameTable = ({
     }
 
     const interval = setInterval(() => {
-      // Firebase timestamps have toMillis() or seconds/nanoseconds
       const startTime = typeof gameData.lastTurnStartTime.toMillis === 'function' 
         ? gameData.lastTurnStartTime.toMillis() 
         : (gameData.lastTurnStartTime.seconds * 1000);
@@ -146,61 +145,64 @@ export const GameTable = ({
   };
 
   const getInstructionalText = () => {
-    if (cambodiaCalled && isMyTurn) return "FINAL TURN! Call Cambodia is active. Make your last move.";
-    if (!isMyTurn) return `Waiting for ${gameData.players[gameData.currentPlayerId]?.name}'s turn...`;
-    if (isSwapping) return "Select one of your cards to swap...";
-    if (isPeeking) return "Select one of your cards to peek at...";
-    if (isSpying) return "Select an opponent's card to spy on...";
+    if (cambodiaCalled && isMyTurn) return "FINAL TURN! Make your last move.";
+    if (!isMyTurn) return `Waiting for ${gameData.players[gameData.currentPlayerId]?.name}...`;
+    if (isSwapping) return "Select a card to swap...";
+    if (isPeeking) return "Select a card to peek at...";
+    if (isSpying) return "Select card to spy on...";
     if (isBlindSwapping) {
       return blindSwapOwnIndex === null 
-        ? "Blind Swap: Select one of your cards..." 
-        : "Blind Swap: Select an opponent's card to swap with...";
+        ? "Select your card..." 
+        : "Select opponent's card...";
     }
     if (isSpySwapping) {
       return spySwapStep === 'opponent'
-        ? "Spy & Swap: Select an opponent's card to spy on..."
-        : "Spy & Swap: Select one of your cards to peek at...";
+        ? "Spy opponent's card..."
+        : "Peek your card...";
     }
-    return "Your turn. Draw, Take from Discard, Snap, or Call Cambodia.";
+    return "Draw, Take, Snap or Cambodia.";
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 to-green-900 p-2 md:p-4 text-white">
-        {/* Main Game Board */}
-        <div className="relative w-full max-w-4xl aspect-video bg-green-800 bg-opacity-50 rounded-3xl shadow-2xl p-4 grid grid-cols-3 grid-rows-3 gap-4 border-4 border-amber-900/50">
-          
-          {cambodiaCalled && (
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-red-600 text-white px-6 py-2 rounded-full font-bold shadow-lg z-10 animate-pulse whitespace-nowrap">
-              CAMBODIA CALLED BY {gameData.players[gameData.cambodiaCalledBy]?.name.toUpperCase()}
-            </div>
-          )}
+    <div className="flex flex-col items-center min-h-screen bg-gradient-to-br from-slate-900 to-green-900 p-2 md:p-4 text-white overflow-x-hidden">
+        
+        {cambodiaCalled && (
+          <div className="w-full max-w-5xl bg-red-600 text-white px-6 py-2 mb-2 rounded-xl text-center font-bold shadow-lg z-10 animate-pulse whitespace-nowrap text-xs md:text-base">
+            CAMBODIA CALLED BY {gameData.players[gameData.cambodiaCalledBy]?.name.toUpperCase()}
+          </div>
+        )}
+
+        {/* Main Game Board - Dynamic layout */}
+        <div className="relative w-full max-w-5xl flex-grow flex flex-col md:grid md:grid-cols-3 md:grid-rows-3 gap-2 md:gap-4 p-2 md:p-4 bg-green-800/30 rounded-3xl border-2 md:border-4 border-amber-900/30">
 
           {/* Opponent Areas */}
-          {opponents.map((player: any, index: number) => (
-            <Opponent
-              key={player.id}
-              player={player}
-              position={getPositionClass(index)}
-              isCurrentPlayer={gameData.currentPlayerId === player.id}
-              currentUserId={currentUser?.uid}
-              onCardSelect={(playerId, cardIdx) => {
-                if (isSpying) onSpyCardSelect(playerId, cardIdx);
-                if (isBlindSwapping && blindSwapOwnIndex !== null) onBlindSwapCardSelect(playerId, cardIdx);
-                if (isSpySwapping && spySwapStep === 'opponent') onSpySwapCardSelect(playerId, cardIdx);
-              }}
-              isSpying={(isSpying || (isBlindSwapping && blindSwapOwnIndex !== null) || (isSpySwapping && spySwapStep === 'opponent')) && isMyTurn}
-            />
-          ))}
+          <div className="md:contents grid grid-cols-2 sm:grid-cols-3 gap-2 md:gap-4 mb-2 md:mb-0">
+            {opponents.map((player: any, index: number) => (
+              <Opponent
+                key={player.id}
+                player={player}
+                position={getPositionClass(index)}
+                isCurrentPlayer={gameData.currentPlayerId === player.id}
+                currentUserId={currentUser?.uid}
+                onCardSelect={(playerId, cardIdx) => {
+                  if (isSpying) onSpyCardSelect(playerId, cardIdx);
+                  if (isBlindSwapping && blindSwapOwnIndex !== null) onBlindSwapCardSelect(playerId, cardIdx);
+                  if (isSpySwapping && spySwapStep === 'opponent') onSpySwapCardSelect(playerId, cardIdx);
+                }}
+                isSpying={(isSpying || (isBlindSwapping && blindSwapOwnIndex !== null) || (isSpySwapping && spySwapStep === 'opponent')) && isMyTurn}
+              />
+            ))}
+          </div>
           
-          {/* Center Area */}
-          <div className="col-start-2 row-start-2 flex items-center justify-center gap-4">
+          {/* Center Area (Deck & Discard) */}
+          <div className="md:col-start-2 md:row-start-2 flex items-center justify-center gap-4 py-2 md:py-0 scale-90 md:scale-100">
               <Card className="shadow-xl" />
               <Card value={topCardOfDiscard.value} suit={topCardOfDiscard.suit} isFaceUp={true} className="shadow-xl" />
           </div>
 
           {/* Current Player Area */}
-          <div className={`col-span-3 row-start-3 self-end flex flex-col items-center gap-2 p-2 rounded-lg transition-all duration-300 ${isMyTurn ? 'bg-yellow-500/20 ring-2 ring-yellow-400' : ''}`}>
-              <div className="flex justify-center gap-2 sm:gap-4">
+          <div className={`md:col-span-3 md:row-start-3 self-center md:self-end flex flex-col items-center gap-1 md:gap-2 p-2 rounded-2xl transition-all duration-300 ${isMyTurn ? 'bg-yellow-500/20 ring-2 ring-yellow-400' : 'bg-slate-800/30'}`}>
+              <div className="flex justify-center gap-1.5 sm:gap-4">
                 {me?.hand.map((card: CardData, index: number) => (
                   <button
                     key={index}
@@ -212,54 +214,54 @@ export const GameTable = ({
                       if (isSpySwapping && spySwapStep === 'own') onSpySwapCardSelect(currentUser?.uid || '', index);
                       if (isMyTurn && !isSwapping && !isPeeking && !isBlindSwapping && !isSpySwapping && !drawnCard) onSnapCardSelect(index);
                     }}
-                    className="disabled:cursor-not-allowed transform hover:scale-110 transition-transform"
+                    className="disabled:cursor-not-allowed transform hover:scale-110 active:scale-95 transition-all"
                   >
                     <Card value={card.value} suit={card.suit} isFaceUp={false} isKnown={card.knownBy.includes(currentUser?.uid || '')} />
                   </button>
                 ))}
               </div>
-              <span className="font-bold text-lg">{me?.name} (You)</span>
+              <span className="font-bold text-xs md:text-lg">{me?.name} (You)</span>
           </div>
         </div>
 
-        {/* Action Bar */}
-        <div className="mt-4 w-full max-w-4xl p-4 bg-slate-800/50 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
+        {/* Action Bar - Mobile Optimized */}
+        <div className="mt-2 w-full max-w-5xl p-2 md:p-4 bg-slate-800/90 backdrop-blur shadow-2xl rounded-2xl flex flex-col md:flex-row items-center justify-between gap-2 md:gap-4 sticky bottom-2 z-20">
+            <div className="flex items-center gap-3 w-full md:w-auto overflow-hidden">
               {timeLeft !== null && (
-                <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border ${timeLeft <= 10 ? 'bg-red-500/20 border-red-500 text-red-400 animate-pulse' : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400'}`}>
-                  <Clock size={20} />
-                  <span className="font-mono text-xl font-bold">{timeLeft}s</span>
+                <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${timeLeft <= 10 ? 'bg-red-500/20 border-red-500 text-red-400 animate-pulse' : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400'}`}>
+                  <Clock size={16} />
+                  <span className="font-mono text-base md:text-xl font-bold">{timeLeft}s</span>
                 </div>
               )}
-              <div className="text-center sm:text-left">
-                <p className="text-sm text-slate-300">Turn Status</p>
-                <p className="font-semibold text-lg">{getInstructionalText()}</p>
+              <div className="text-left leading-tight overflow-hidden">
+                <p className="text-[9px] md:text-xs text-slate-400 uppercase font-bold tracking-tight">Status</p>
+                <p className="font-semibold text-xs md:text-base truncate">{getInstructionalText()}</p>
               </div>
             </div>
-            <div className="flex flex-wrap justify-center gap-2 sm:gap-4">
+            <div className="flex flex-wrap justify-center gap-1.5 md:gap-4 w-full md:w-auto">
               <button 
                 onClick={onToggleScoreboard}
-                className="bg-slate-700 hover:bg-slate-600 text-white p-2 rounded-lg transition-colors shadow-lg"
+                className="bg-slate-700 hover:bg-slate-600 text-white p-1.5 md:p-2 rounded-lg transition-colors shadow-lg"
                 title="View Scoreboard"
               >
-                <List size={24} />
+                <List size={20} />
               </button>
-              <button onClick={onDrawCard} disabled={!isMyTurn || isSwapping || isPeeking || isSpying || isBlindSwapping || isSpySwapping || drawnCard} className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-6 rounded-lg disabled:bg-slate-600 disabled:cursor-not-allowed">
-                Draw Card
+              <button onClick={onDrawCard} disabled={!isMyTurn || isSwapping || isPeeking || isSpying || isBlindSwapping || isSpySwapping || drawnCard} className="flex-grow md:flex-grow-0 bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-1.5 md:py-2 px-3 md:px-6 rounded-lg text-xs md:text-base disabled:bg-slate-600 disabled:cursor-not-allowed">
+                Draw
               </button>
-              <button onClick={onTakeFromDiscard} disabled={!isMyTurn || isSwapping || isPeeking || isSpying || isBlindSwapping || isSpySwapping || drawnCard} className="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-6 rounded-lg disabled:bg-slate-600 disabled:cursor-not-allowed">
+              <button onClick={onTakeFromDiscard} disabled={!isMyTurn || isSwapping || isPeeking || isSpying || isBlindSwapping || isSpySwapping || drawnCard} className="flex-grow md:flex-grow-0 bg-amber-600 hover:bg-amber-700 text-white font-bold py-1.5 md:py-2 px-3 md:px-6 rounded-lg text-xs md:text-base disabled:bg-slate-600 disabled:cursor-not-allowed">
                 Take {topCardOfDiscard.value}{topCardOfDiscard.suit}
               </button>
               <button 
                 onClick={onCallCambodia} 
                 disabled={!isMyTurn || isSwapping || isPeeking || isSpying || isBlindSwapping || isSpySwapping || drawnCard || cambodiaCalled} 
-                className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg disabled:bg-slate-600 disabled:cursor-not-allowed shadow-lg border-2 border-red-400/50"
+                className="flex-grow md:flex-grow-0 bg-red-600 hover:bg-red-700 text-white font-bold py-1.5 md:py-2 px-3 md:px-6 rounded-lg text-xs md:text-base disabled:bg-slate-600 disabled:cursor-not-allowed shadow-lg border-2 border-red-400/50"
               >
-                Call Cambodia
+                Cambodia!
               </button>
             </div>
         </div>
-        
+
         {/* Modals */}
         {showInitialPeek && me?.hand && <InitialPeekModal hand={me.hand} onDone={onInitialPeekDone} />}
         {showDrawCardModal && drawnCard && (
@@ -297,4 +299,3 @@ export const GameTable = ({
     </div>
   );
 };
-

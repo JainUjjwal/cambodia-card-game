@@ -22,9 +22,9 @@ const Opponent = ({ player, position, isCurrentPlayer, currentUserId, onCardSele
   };
 
   return (
-    <div className={`flex flex-col items-center gap-2 ${positionClasses[position]}`}>
-      <span className={`px-3 py-1 text-sm font-bold rounded-full transition-all duration-300 ${isCurrentPlayer ? 'bg-yellow-400 text-slate-900' : 'bg-slate-700 text-white'}`}>{player.name}</span>
-      <div className="flex justify-center gap-2">
+    <div className={`flex flex-col items-center gap-1 md:gap-2 ${positionClasses[position]}`}>
+      <span className={`px-2 md:px-3 py-0.5 md:py-1 text-xs md:text-sm font-bold rounded-full transition-all duration-300 ${isCurrentPlayer ? 'bg-yellow-400 text-slate-900' : 'bg-slate-700 text-white'}`}>{player.name}</span>
+      <div className="flex justify-center gap-1 md:gap-2">
         {player.hand.map((card: CardData, index: number) => (
           <button
             key={index}
