@@ -26,6 +26,7 @@ const LandingPage = () => {
         status: 'waiting',
         createdAt: serverTimestamp(),
         playOrder: [currentUser.uid],
+        turnTimerDuration: 30,
         players: {
           [currentUser.uid]: {
             name: `Player 1`,

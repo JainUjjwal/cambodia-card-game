@@ -189,6 +189,7 @@ const LobbyPage = () => {
             onChange={handleTimerChange}
             className="w-full bg-slate-800 border border-slate-600 rounded-lg p-2 text-white focus:ring-cyan-500 focus:border-cyan-500 disabled:bg-slate-800/50"
           >
+            <option value="5">5 seconds (Testing)</option>
             <option value="30">30 seconds</option>
             <option value="45">45 seconds</option>
             <option value="60">60 seconds</option>

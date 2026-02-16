@@ -54,6 +54,9 @@ export const GamePage = () => {
   // State for scoreboard visibility
   const [showScoreboard, setShowScoreboard] = useState(false);
 
+  // State to prevent multiple timer expirations in one turn
+  const [isTimerExpiring, setIsTimerExpiring] = useState(false);
+
 
   useEffect(() => {
     if (!shortId || !currentUser) return;
@@ -157,6 +160,7 @@ export const GamePage = () => {
       const gameRef = doc(db, 'games', gameDocId);
       await updateDoc(gameRef, updates);
     }
+    setIsTimerExpiring(false);
   };
 
   const handleDrawCard = async () => {
@@ -461,8 +465,9 @@ export const GamePage = () => {
   };
 
   const handleTimerExpire = async () => {
-    if (!gameData || !gameDocId || !currentUser || gameData.currentPlayerId !== currentUser.uid) return;
+    if (!gameData || !gameDocId || !currentUser || gameData.currentPlayerId !== currentUser.uid || isTimerExpiring) return;
 
+    setIsTimerExpiring(true);
     // Auto-skip: Draw and Discard immediately
     const currentDeck = gameData.deck;
     if (currentDeck.length > 0) {

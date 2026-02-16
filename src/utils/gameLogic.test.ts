@@ -34,12 +34,6 @@ describe('gameLogic utility', () => {
     });
   });
 
-  describe('Win Condition (Integration Logic)', () => {
-    // Note: The 100-point check happens in the Component/Firestore update logic,
-    // but we can verify the score accumulation logic here if we move it to a utility.
-    // For now, calculateRoundScores is purely for one round.
-  });
-
   describe('getNextPlayerId', () => {
     const playOrder = ['user1', 'user2', 'user3'];
 

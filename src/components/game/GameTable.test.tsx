@@ -78,6 +78,7 @@ describe('GameTable Component', () => {
     onCallCambodia: vi.fn(),
     showScoreboard: false,
     onToggleScoreboard: vi.fn(),
+    onTimerExpire: vi.fn(),
   };
 
   it('should display correct instruction when it is my turn', () => {
@@ -120,6 +121,20 @@ describe('GameTable Component', () => {
   it('should render ScoreboardModal when showScoreboard is true', () => {
     render(<GameTable {...defaultProps} showScoreboard={true} />);
     expect(screen.getByText('Scoreboard')).toBeInTheDocument();
+  });
+
+  it('should render timer when active', () => {
+    const props = {
+      ...defaultProps,
+      gameData: { 
+        ...defaultGameData, 
+        turnTimerDuration: '30',
+        lastTurnStartTime: { toMillis: () => Date.now() }
+      }
+    };
+    render(<GameTable {...props} />);
+    // Initial render might be 30 or 29 depending on clock sync
+    expect(screen.getByText(/s$/)).toBeInTheDocument(); 
   });
 
   it('should display correct instruction when it is not my turn', () => {
