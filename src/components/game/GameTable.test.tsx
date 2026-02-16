@@ -75,11 +75,37 @@ describe('GameTable Component', () => {
     spySwapResult: null,
     onSpySwapComplete: vi.fn(),
     onSnapCardSelect: vi.fn(),
+    onCallCambodia: vi.fn(),
   };
 
   it('should display correct instruction when it is my turn', () => {
     render(<GameTable {...defaultProps} />);
-    expect(screen.getByText('Your turn. Draw, Take from Discard, or Snap a matching card.')).toBeInTheDocument();
+    expect(screen.getByText('Your turn. Draw, Take from Discard, Snap, or Call Cambodia.')).toBeInTheDocument();
+  });
+
+  it('should display notification when Cambodia is called', () => {
+    const props = {
+      ...defaultProps,
+      gameData: { ...defaultGameData, cambodiaCalledBy: 'opp-1' }
+    };
+    render(<GameTable {...props} />);
+    expect(screen.getByText('CAMBODIA CALLED BY PLAYER 2')).toBeInTheDocument();
+  });
+
+  it('should display final turn instruction', () => {
+    const props = {
+      ...defaultProps,
+      gameData: { ...defaultGameData, cambodiaCalledBy: 'opp-1' }
+    };
+    render(<GameTable {...props} />);
+    expect(screen.getByText('FINAL TURN! Call Cambodia is active. Make your last move.')).toBeInTheDocument();
+  });
+
+  it('should call onCallCambodia when button is clicked', () => {
+    render(<GameTable {...defaultProps} />);
+    const button = screen.getByText('Call Cambodia');
+    fireEvent.click(button);
+    expect(defaultProps.onCallCambodia).toHaveBeenCalled();
   });
 
   it('should display correct instruction when it is not my turn', () => {
