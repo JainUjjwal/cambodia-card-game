@@ -69,6 +69,11 @@ describe('GameTable Component', () => {
     isBlindSwapping: false,
     blindSwapOwnIndex: null,
     onBlindSwapCardSelect: vi.fn(),
+    isSpySwapping: false,
+    spySwapStep: 'idle',
+    onSpySwapCardSelect: vi.fn(),
+    spySwapResult: null,
+    onSpySwapComplete: vi.fn(),
   };
 
   it('should display correct instruction when it is my turn', () => {
@@ -108,6 +113,34 @@ describe('GameTable Component', () => {
   it('should display blind swap opponent selection instruction', () => {
     render(<GameTable {...defaultProps} isBlindSwapping={true} blindSwapOwnIndex={0} />);
     expect(screen.getByText("Blind Swap: Select an opponent's card to swap with...")).toBeInTheDocument();
+  });
+
+  it('should display spy and swap initial instruction', () => {
+    render(<GameTable {...defaultProps} isSpySwapping={true} spySwapStep="opponent" />);
+    expect(screen.getByText("Spy & Swap: Select an opponent's card to spy on...")).toBeInTheDocument();
+  });
+
+  it('should display spy and swap player card instruction', () => {
+    render(<GameTable {...defaultProps} isSpySwapping={true} spySwapStep="own" />);
+    expect(screen.getByText("Spy & Swap: Select one of your cards to peek at...")).toBeInTheDocument();
+  });
+
+  it('should call onSpySwapCardSelect when opponent card is clicked during phase 1', () => {
+    render(<GameTable {...defaultProps} isSpySwapping={true} spySwapStep="opponent" />);
+    const opponentCard = screen.getAllByRole('button').find(b => 
+      !b.hasAttribute('disabled') && b.textContent === 'hidden' && b.closest('div.col-start-2.row-start-1')
+    );
+    fireEvent.click(opponentCard!);
+    expect(defaultProps.onSpySwapCardSelect).toHaveBeenCalledWith('opp-1', 0);
+  });
+
+  it('should call onSpySwapCardSelect when my card is clicked during phase 2', () => {
+    render(<GameTable {...defaultProps} isSpySwapping={true} spySwapStep="own" />);
+    const myCard = screen.getAllByRole('button').find(b => 
+      !b.hasAttribute('disabled') && b.textContent === 'hidden' && b.closest('div.col-span-3.row-start-3')
+    );
+    fireEvent.click(myCard!);
+    expect(defaultProps.onSpySwapCardSelect).toHaveBeenCalledWith('me', 0);
   });
 
   it('should call onBlindSwapCardSelect when my card is clicked during phase 1', () => {
@@ -189,6 +222,16 @@ describe('GameTable Component', () => {
     render(<GameTable {...props} />);
     expect(screen.getByText('Draw Card')).toBeDisabled();
     expect(screen.getByText('Take 5♣')).toBeDisabled();
+  });
+
+  it('should render SpySwapModal when showSpySwapResult is true', () => {
+    const result = {
+      opponentCard: { value: '9', suit: '♠', points: 9, knownBy: [] } as CardData,
+      ownCard: { value: '2', suit: '♥', points: 2, knownBy: [] } as CardData,
+      opponentName: 'Player 2'
+    };
+    render(<GameTable {...defaultProps} isSpySwapping={true} spySwapStep="decision" spySwapResult={result} />);
+    expect(screen.getByText('Spy & Swap')).toBeInTheDocument();
   });
 
   it('should render multiple opponents', () => {

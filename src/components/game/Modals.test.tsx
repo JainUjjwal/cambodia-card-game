@@ -4,9 +4,66 @@ import DrawCardModal from './DrawCardModal';
 import InitialPeekModal from './InitialPeekModal';
 import PeekResultModal from './PeekResultModal';
 import SpyResultModal from './SpyResultModal';
+import SpySwapModal from './SpySwapModal';
 import { CardData } from '../../utils/deck';
 
 describe('Modals', () => {
+  describe('SpySwapModal', () => {
+    const mockOpponentCard: CardData = { value: '9', suit: '♠', points: 9, knownBy: [] };
+    const mockOwnCard: CardData = { value: '2', suit: '♥', points: 2, knownBy: [] };
+
+    it('should display both cards and opponent name', () => {
+      render(
+        <SpySwapModal 
+          opponentCard={mockOpponentCard} 
+          ownCard={mockOwnCard} 
+          opponentName="Player 2" 
+          onSwap={vi.fn()} 
+          onKeep={vi.fn()} 
+        />
+      );
+      
+      expect(screen.getByText("Player 2's Card")).toBeInTheDocument();
+      expect(screen.getByText('9')).toBeInTheDocument();
+      expect(screen.getByText('♠')).toBeInTheDocument();
+      expect(screen.getByText('Your Card')).toBeInTheDocument();
+      expect(screen.getByText('2')).toBeInTheDocument();
+      expect(screen.getByText('♥')).toBeInTheDocument();
+    });
+
+    it('should call onSwap when Swap Cards button is clicked', () => {
+      const onSwap = vi.fn();
+      render(
+        <SpySwapModal 
+          opponentCard={mockOpponentCard} 
+          ownCard={mockOwnCard} 
+          opponentName="Player 2" 
+          onSwap={onSwap} 
+          onKeep={vi.fn()} 
+        />
+      );
+      
+      fireEvent.click(screen.getByText('Swap Cards'));
+      expect(onSwap).toHaveBeenCalled();
+    });
+
+    it('should call onKeep when Keep My Card button is clicked', () => {
+      const onKeep = vi.fn();
+      render(
+        <SpySwapModal 
+          opponentCard={mockOpponentCard} 
+          ownCard={mockOwnCard} 
+          opponentName="Player 2" 
+          onSwap={vi.fn()} 
+          onKeep={onKeep} 
+        />
+      );
+      
+      fireEvent.click(screen.getByText('Keep My Card'));
+      expect(onKeep).toHaveBeenCalled();
+    });
+  });
+
   describe('DrawCardModal', () => {
     const mockCard: CardData = { value: '7', suit: '♠', points: 7, knownBy: [] };
     const mockNoActionCard: CardData = { value: '2', suit: '♥', points: 2, knownBy: [] };

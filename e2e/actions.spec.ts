@@ -175,8 +175,76 @@ test('action flow: blind swap', async ({ browser }) => {
     }
   }
 
+  await context1.close();
+  await context2.close();
+});
+
+test('action flow: spy and swap', async ({ browser }) => {
+  const { page1, page2, context1, context2 } = await setupGame(browser);
+
+  let actionFound = false;
+  let attempts = 0;
+  const maxAttempts = 20;
+
+  while (!actionFound && attempts < maxAttempts) {
+    await page1.getByRole('button', { name: /Draw Card/i }).click();
+    const modal = page1.locator('div.fixed.inset-0.bg-black.bg-opacity-75');
+    await expect(modal).toBeVisible();
+
+    const actionButton = page1.getByRole('button', { name: /Use Action/i });
+    const isEnabled = await actionButton.isEnabled();
+
+    if (isEnabled) {
+      const cardValue = await modal.locator('div.font-bold.text-5xl').innerText();
+      const cardSuit = await modal.locator('div.text-4xl').innerText();
+      console.log(`Found action card: ${cardValue} of ${cardSuit}`);
+      
+      const isBlackKing = cardValue === 'K' && ['♠', '♣'].includes(cardSuit);
+
+      if (isBlackKing) {
+        // Test Spy and Swap
+        await actionButton.click();
+        await expect(modal).not.toBeVisible();
+        
+        // Phase 1: Select opponent card
+        await expect(page1.getByText('Spy & Swap: Select an opponent\'s card to spy on...')).toBeVisible();
+        const opponentCard = page1.locator('div.col-start-2.row-start-1 button').first();
+        await expect(opponentCard).toBeEnabled();
+        await page1.waitForTimeout(500); 
+        await opponentCard.click();
+
+        // Phase 2: Select own card
+        await expect(page1.getByText('Spy & Swap: Select one of your cards to peek at...')).toBeVisible();
+        const myCard = page1.locator('div.col-span-3.row-start-3 button').first();
+        await expect(myCard).toBeEnabled();
+        await page1.waitForTimeout(500);
+        await myCard.click();
+
+        // Phase 3: Decision Modal
+        await expect(page1.getByRole('heading', { name: 'Spy & Swap' })).toBeVisible();
+        await page1.getByRole('button', { name: /Keep My Card/i }).click();
+        
+        // Verify turn advanced
+        await expect(page1.getByText(/Waiting for Player 2/i)).toBeVisible({ timeout: 10000 });
+        actionFound = true;
+      } else {
+        await page1.getByRole('button', { name: /Discard/i }).click();
+      }
+    } else {
+      await page1.getByRole('button', { name: /Discard/i }).click();
+    }
+
+    if (!actionFound) {
+      // Pass turn
+      await expect(page2.getByText('Your turn')).toBeVisible();
+      await page2.getByRole('button', { name: /Draw Card/i }).click();
+      await page2.getByRole('button', { name: /Discard/i }).click();
+      attempts++;
+    }
+  }
+
   if (!actionFound) {
-    console.log('Could not find a Jack/Queen in 15 attempts.');
+    console.log('Could not find a Black King in 20 attempts.');
   }
 
   await context1.close();
