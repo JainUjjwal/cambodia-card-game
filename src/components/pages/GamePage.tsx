@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, onSnapshot, updateDoc, type DocumentData } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, serverTimestamp, type DocumentData } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../context/AuthContext';
 import { GameTable } from '../game/GameTable';
@@ -152,6 +152,7 @@ export const GamePage = () => {
       const updates = {
         ...extraUpdates,
         currentPlayerId: nextPlayerId,
+        lastTurnStartTime: serverTimestamp(),
       };
       const gameRef = doc(db, 'games', gameDocId);
       await updateDoc(gameRef, updates);
@@ -459,6 +460,24 @@ export const GamePage = () => {
     });
   };
 
+  const handleTimerExpire = async () => {
+    if (!gameData || !gameDocId || !currentUser || gameData.currentPlayerId !== currentUser.uid) return;
+
+    // Auto-skip: Draw and Discard immediately
+    const currentDeck = gameData.deck;
+    if (currentDeck.length > 0) {
+      const card = currentDeck[0];
+      await advanceTurn({
+        deck: gameData.deck.slice(1),
+        discardPile: [card, ...gameData.discardPile],
+      });
+      handleCloseDrawModal();
+    } else {
+      // Deck empty, just advance turn
+      await advanceTurn({});
+    }
+  };
+
 
   if (error) return <div className="text-red-500 text-center p-8">{error}</div>;
   if (!gameData || !currentUser) return <div className="text-center p-8">Loading Game...</div>;
@@ -509,6 +528,7 @@ export const GamePage = () => {
       onCallCambodia={handleCallCambodia}
       showScoreboard={showScoreboard}
       onToggleScoreboard={() => setShowScoreboard(!showScoreboard)}
+      onTimerExpire={handleTimerExpire}
     />
   );
 };

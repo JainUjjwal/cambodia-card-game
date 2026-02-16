@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, updateDoc, collection, query, where, onSnapshot, type DocumentData } from 'firebase/firestore';
+import { doc, updateDoc, collection, query, where, onSnapshot, serverTimestamp, type DocumentData } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../context/AuthContext';
 import { Book, Copy, User, CheckCircle, Clock, Edit2 } from 'lucide-react';
@@ -112,6 +112,15 @@ const LobbyPage = () => {
     }
   };
 
+  const handleTimerChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    if (!gameDocId || !amIHost) return;
+    const value = e.target.value;
+    const duration = value === 'No Timer' ? null : parseInt(value);
+    
+    const gameRef = doc(db, 'games', gameDocId);
+    await updateDoc(gameRef, { turnTimerDuration: duration });
+  };
+
   const handleStartGame = async () => {
     if (gameDocId && currentUser && gameData && currentUser.uid === gameData.hostId) {
       const playerIds = gameData.playOrder;
@@ -138,6 +147,7 @@ const LobbyPage = () => {
       updates['discardPile'] = [shuffledDeck[0]];
       updates['status'] = 'in-progress';
       updates['currentPlayerId'] = gameData.playOrder[0];
+      updates['lastTurnStartTime'] = serverTimestamp();
 
       const gameRef = doc(db, 'games', gameDocId);
       await updateDoc(gameRef, updates);
@@ -172,11 +182,17 @@ const LobbyPage = () => {
 
         <div className="mb-6">
           <label htmlFor="turn-timer" className="block text-sm font-medium text-slate-300 mb-2">Turn Timer</label>
-          <select id="turn-timer" disabled={!amIHost} className="w-full bg-slate-800 border border-slate-600 rounded-lg p-2 text-white focus:ring-cyan-500 focus:border-cyan-500 disabled:bg-slate-800/50">
-            <option>30 seconds</option>
-            <option>45 seconds</option>
-            <option>60 seconds</option>
-            <option>No Timer</option>
+          <select 
+            id="turn-timer" 
+            disabled={!amIHost} 
+            value={gameData.turnTimerDuration || 'No Timer'}
+            onChange={handleTimerChange}
+            className="w-full bg-slate-800 border border-slate-600 rounded-lg p-2 text-white focus:ring-cyan-500 focus:border-cyan-500 disabled:bg-slate-800/50"
+          >
+            <option value="30">30 seconds</option>
+            <option value="45">45 seconds</option>
+            <option value="60">60 seconds</option>
+            <option value="No Timer">No Timer</option>
           </select>
         </div>
 

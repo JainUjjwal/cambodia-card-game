@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { type DocumentData } from 'firebase/firestore';
 import { type User } from 'firebase/auth';
-import { List } from 'lucide-react';
+import { List, Clock } from 'lucide-react';
 import Card from './Card';
 import Opponent from './Opponent';
 import InitialPeekModal from './InitialPeekModal';
@@ -50,6 +50,7 @@ export type GameTableProps = {
   onCallCambodia: () => void;
   showScoreboard: boolean;
   onToggleScoreboard: () => void;
+  onTimerExpire: () => void;
 };
 
 export const GameTable = ({
@@ -89,6 +90,7 @@ export const GameTable = ({
   onCallCambodia,
   showScoreboard,
   onToggleScoreboard,
+  onTimerExpire,
 }: GameTableProps) => {
 
   const opponents = gameData.playOrder
@@ -98,6 +100,37 @@ export const GameTable = ({
   const isMyTurn = gameData.currentPlayerId === currentUser?.uid;
   const topCardOfDiscard = gameData.discardPile[0];
   const cambodiaCalled = !!gameData.cambodiaCalledBy;
+
+  // Timer Logic
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!gameData.turnTimerDuration || !gameData.lastTurnStartTime) {
+      setTimeLeft(null);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      // Firebase timestamps have toMillis() or seconds/nanoseconds
+      const startTime = typeof gameData.lastTurnStartTime.toMillis === 'function' 
+        ? gameData.lastTurnStartTime.toMillis() 
+        : (gameData.lastTurnStartTime.seconds * 1000);
+        
+      const durationMs = parseInt(gameData.turnTimerDuration) * 1000;
+      const now = Date.now();
+      const elapsed = now - startTime;
+      const remaining = Math.max(0, Math.ceil((durationMs - elapsed) / 1000));
+
+      setTimeLeft(remaining);
+
+      if (remaining === 0 && isMyTurn) {
+        onTimerExpire();
+        clearInterval(interval);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [gameData.lastTurnStartTime, gameData.turnTimerDuration, isMyTurn, onTimerExpire]);
 
   const opponentPositions: { [key: number]: string[] } = {
     1: ['top-center'],
@@ -191,9 +224,17 @@ export const GameTable = ({
 
         {/* Action Bar */}
         <div className="mt-4 w-full max-w-4xl p-4 bg-slate-800/50 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="text-center sm:text-left">
-              <p className="text-sm text-slate-300">Turn Status</p>
-              <p className="font-semibold text-lg">{getInstructionalText()}</p>
+            <div className="flex items-center gap-4">
+              {timeLeft !== null && (
+                <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border ${timeLeft <= 10 ? 'bg-red-500/20 border-red-500 text-red-400 animate-pulse' : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400'}`}>
+                  <Clock size={20} />
+                  <span className="font-mono text-xl font-bold">{timeLeft}s</span>
+                </div>
+              )}
+              <div className="text-center sm:text-left">
+                <p className="text-sm text-slate-300">Turn Status</p>
+                <p className="font-semibold text-lg">{getInstructionalText()}</p>
+              </div>
             </div>
             <div className="flex flex-wrap justify-center gap-2 sm:gap-4">
               <button 
