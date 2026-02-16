@@ -452,6 +452,20 @@ export const GamePage = () => {
     }
   };
 
+  const handleCallCambodia = async () => {
+    if (!gameData || !gameDocId || !currentUser || drawnCard || gameData.cambodiaCalledBy) return;
+
+    const nextPlayerId = getNextPlayerId(currentUser.uid, gameData.playOrder);
+    
+    const updates = {
+      cambodiaCalledBy: currentUser.uid,
+      currentPlayerId: nextPlayerId,
+    };
+
+    const gameRef = doc(db, 'games', gameDocId);
+    await updateDoc(gameRef, updates);
+  };
+
 
   if (error) return <div className="text-red-500 text-center p-8">{error}</div>;
   if (!gameData || !currentUser) return <div className="text-center p-8">Loading Game...</div>;
@@ -499,6 +513,7 @@ export const GamePage = () => {
       spySwapResult={spySwapResult}
       onSpySwapComplete={handleSpySwapComplete}
       onSnapCardSelect={handleSnapCardSelect}
+      onCallCambodia={handleCallCambodia}
     />
   );
 };

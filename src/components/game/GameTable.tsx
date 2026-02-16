@@ -45,6 +45,7 @@ export type GameTableProps = {
   spySwapResult: { opponentCard: CardData; ownCard: CardData; opponentName: string } | null;
   onSpySwapComplete: (shouldSwap: boolean) => void;
   onSnapCardSelect: (cardIndex: number) => void;
+  onCallCambodia: () => void;
 };
 
 export const GameTable = ({
@@ -81,6 +82,7 @@ export const GameTable = ({
   spySwapResult,
   onSpySwapComplete,
   onSnapCardSelect,
+  onCallCambodia,
 }: GameTableProps) => {
 
   const opponents = gameData.playOrder
@@ -89,6 +91,7 @@ export const GameTable = ({
 
   const isMyTurn = gameData.currentPlayerId === currentUser?.uid;
   const topCardOfDiscard = gameData.discardPile[0];
+  const cambodiaCalled = !!gameData.cambodiaCalledBy;
 
   const opponentPositions: { [key: number]: string[] } = {
     1: ['top-center'],
@@ -104,6 +107,7 @@ export const GameTable = ({
   };
 
   const getInstructionalText = () => {
+    if (cambodiaCalled && isMyTurn) return "FINAL TURN! Call Cambodia is active. Make your last move.";
     if (!isMyTurn) return `Waiting for ${gameData.players[gameData.currentPlayerId]?.name}'s turn...`;
     if (isSwapping) return "Select one of your cards to swap...";
     if (isPeeking) return "Select one of your cards to peek at...";
@@ -118,13 +122,19 @@ export const GameTable = ({
         ? "Spy & Swap: Select an opponent's card to spy on..."
         : "Spy & Swap: Select one of your cards to peek at...";
     }
-    return "Your turn. Draw, Take from Discard, or Snap a matching card.";
+    return "Your turn. Draw, Take from Discard, Snap, or Call Cambodia.";
   };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 to-green-900 p-2 md:p-4 text-white">
         {/* Main Game Board */}
         <div className="relative w-full max-w-4xl aspect-video bg-green-800 bg-opacity-50 rounded-3xl shadow-2xl p-4 grid grid-cols-3 grid-rows-3 gap-4 border-4 border-amber-900/50">
+          
+          {cambodiaCalled && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-red-600 text-white px-6 py-2 rounded-full font-bold shadow-lg z-10 animate-pulse whitespace-nowrap">
+              CAMBODIA CALLED BY {gameData.players[gameData.cambodiaCalledBy]?.name.toUpperCase()}
+            </div>
+          )}
 
           {/* Opponent Areas */}
           {opponents.map((player: any, index: number) => (
@@ -179,12 +189,19 @@ export const GameTable = ({
               <p className="text-sm text-slate-300">Turn Status</p>
               <p className="font-semibold text-lg">{getInstructionalText()}</p>
             </div>
-            <div className="flex gap-2 sm:gap-4">
-              <button onClick={onDrawCard} disabled={!isMyTurn || isSwapping || isPeeking || isSpying} className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-6 rounded-lg disabled:bg-slate-600 disabled:cursor-not-allowed">
+            <div className="flex flex-wrap justify-center gap-2 sm:gap-4">
+              <button onClick={onDrawCard} disabled={!isMyTurn || isSwapping || isPeeking || isSpying || isBlindSwapping || isSpySwapping || drawnCard} className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-6 rounded-lg disabled:bg-slate-600 disabled:cursor-not-allowed">
                 Draw Card
               </button>
-              <button onClick={onTakeFromDiscard} disabled={!isMyTurn || isSwapping || isPeeking || isSpying} className="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-6 rounded-lg disabled:bg-slate-600 disabled:cursor-not-allowed">
+              <button onClick={onTakeFromDiscard} disabled={!isMyTurn || isSwapping || isPeeking || isSpying || isBlindSwapping || isSpySwapping || drawnCard} className="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-6 rounded-lg disabled:bg-slate-600 disabled:cursor-not-allowed">
                 Take {topCardOfDiscard.value}{topCardOfDiscard.suit}
+              </button>
+              <button 
+                onClick={onCallCambodia} 
+                disabled={!isMyTurn || isSwapping || isPeeking || isSpying || isBlindSwapping || isSpySwapping || drawnCard || cambodiaCalled} 
+                className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg disabled:bg-slate-600 disabled:cursor-not-allowed shadow-lg border-2 border-red-400/50"
+              >
+                Call Cambodia
               </button>
             </div>
         </div>
