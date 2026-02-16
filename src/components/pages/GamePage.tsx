@@ -39,6 +39,10 @@ export const GamePage = () => {
   const [spiedCardIndex, setSpiedCardIndex] = useState<number | null>(null);
   const [showSpyResultModal, setShowSpyResultModal] = useState(false);
 
+  // State for Blind Swap action (Jack/Queen)
+  const [isBlindSwapping, setIsBlindSwapping] = useState(false);
+  const [blindSwapOwnIndex, setBlindSwapOwnIndex] = useState<number | null>(null);
+
 
   useEffect(() => {
     if (!shortId || !currentUser) return;
@@ -189,6 +193,8 @@ export const GamePage = () => {
         setIsPeeking(true);
     } else if (['9', '10'].includes(value)) {
         setIsSpying(true);
+    } else if (['J', 'Q'].includes(value)) {
+        setIsBlindSwapping(true);
     }
     // Future actions will go here...
 
@@ -283,6 +289,47 @@ export const GamePage = () => {
     setDrawnCard(null);
   };
 
+  const handleBlindSwapCardSelect = async (playerId: string, cardIndex: number) => {
+    if (!gameData || !gameDocId || !currentUser || !drawnCard) return;
+
+    if (playerId === currentUser.uid) {
+      // Step 1: Select own card
+      setBlindSwapOwnIndex(cardIndex);
+    } else {
+      // Step 2: Select opponent card and perform swap
+      if (blindSwapOwnIndex === null) return;
+
+      const myId = currentUser.uid;
+      const oppId = playerId;
+
+      const myHand = [...gameData.players[myId].hand];
+      const oppHand = [...gameData.players[oppId].hand];
+
+      const myCard = myHand[blindSwapOwnIndex];
+      const oppCard = oppHand[cardIndex];
+
+      myHand[blindSwapOwnIndex] = oppCard;
+      oppHand[cardIndex] = myCard;
+
+      const nextPlayerId = getNextPlayerId(currentUser.uid, gameData.playOrder);
+
+      const updates = {
+        [`players.${myId}.hand`]: myHand,
+        [`players.${oppId}.hand`]: oppHand,
+        deck: gameData.deck.slice(1),
+        discardPile: [drawnCard, ...gameData.discardPile],
+        currentPlayerId: nextPlayerId,
+      };
+
+      const gameRef = doc(db, 'games', gameDocId);
+      await updateDoc(gameRef, updates);
+
+      setIsBlindSwapping(false);
+      setBlindSwapOwnIndex(null);
+      setDrawnCard(null);
+    }
+  };
+
 
   if (error) return <div className="text-red-500 text-center p-8">{error}</div>;
   if (!gameData || !currentUser) return <div className="text-center p-8">Loading Game...</div>;
@@ -321,6 +368,9 @@ export const GamePage = () => {
       showSpyResultModal={showSpyResultModal}
       spiedCardResult={spiedCardResult}
       onCloseSpyResultModal={handleCloseSpyResultModal}
+      isBlindSwapping={isBlindSwapping}
+      blindSwapOwnIndex={blindSwapOwnIndex}
+      onBlindSwapCardSelect={handleBlindSwapCardSelect}
     />
   );
 };

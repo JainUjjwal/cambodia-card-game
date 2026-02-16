@@ -35,6 +35,9 @@ export type GameTableProps = {
   showSpyResultModal: boolean;
   spiedCardResult: { card: CardData; playerName: string } | null;
   onCloseSpyResultModal: () => void;
+  isBlindSwapping: boolean;
+  blindSwapOwnIndex: number | null;
+  onBlindSwapCardSelect: (playerId: string, cardIndex: number) => void;
 };
 
 export const GameTable = ({
@@ -62,6 +65,9 @@ export const GameTable = ({
   showSpyResultModal,
   spiedCardResult,
   onCloseSpyResultModal,
+  isBlindSwapping,
+  blindSwapOwnIndex,
+  onBlindSwapCardSelect,
 }: GameTableProps) => {
 
   const opponents = gameData.playOrder
@@ -89,6 +95,11 @@ export const GameTable = ({
     if (isSwapping) return "Select one of your cards to swap...";
     if (isPeeking) return "Select one of your cards to peek at...";
     if (isSpying) return "Select an opponent's card to spy on...";
+    if (isBlindSwapping) {
+      return blindSwapOwnIndex === null 
+        ? "Blind Swap: Select one of your cards..." 
+        : "Blind Swap: Select an opponent's card to swap with...";
+    }
     return "Your turn. Draw a card or take from the discard pile.";
   };
 
@@ -105,8 +116,11 @@ export const GameTable = ({
               position={getPositionClass(index)}
               isCurrentPlayer={gameData.currentPlayerId === player.id}
               currentUserId={currentUser?.uid}
-              onCardSelect={onSpyCardSelect}
-              isSpying={isSpying && isMyTurn}
+              onCardSelect={(playerId, cardIdx) => {
+                if (isSpying) onSpyCardSelect(playerId, cardIdx);
+                if (isBlindSwapping && blindSwapOwnIndex !== null) onBlindSwapCardSelect(playerId, cardIdx);
+              }}
+              isSpying={(isSpying || (isBlindSwapping && blindSwapOwnIndex !== null)) && isMyTurn}
             />
           ))}
           
@@ -122,10 +136,11 @@ export const GameTable = ({
                 {me?.hand.map((card: CardData, index: number) => (
                   <button
                     key={index}
-                    disabled={(!isSwapping && !isPeeking) || !isMyTurn}
+                    disabled={(!isSwapping && !isPeeking && !(isBlindSwapping && blindSwapOwnIndex === null)) || !isMyTurn}
                     onClick={() => {
                       if (isSwapping) onSwapCardSelect(index);
                       if (isPeeking) onPeekCardSelect(index);
+                      if (isBlindSwapping && blindSwapOwnIndex === null) onBlindSwapCardSelect(currentUser?.uid || '', index);
                     }}
                     className="disabled:cursor-not-allowed transform hover:scale-110 transition-transform"
                   >
