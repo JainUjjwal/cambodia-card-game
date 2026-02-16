@@ -178,3 +178,34 @@ test('scoring flow: full round end after Cambodia call', async ({ browser }) => 
   await context1.close();
   await context2.close();
 });
+
+test('game flow: host can start next round', async ({ browser }) => {
+  const { page1, page2, context1, context2, gameCode } = await setupGame(browser);
+
+  // 1. Complete a round
+  await page1.getByRole('button', { name: /Call Cambodia/i }).click();
+  await page2.getByRole('button', { name: /Draw Card/i }).click();
+  await page2.getByRole('button', { name: /Discard/i }).click();
+
+  // 2. Both redirected to /end
+  const endUrlPattern = new RegExp(`end\\?gameId=${gameCode}`, 'i');
+  await expect(page1).toHaveURL(endUrlPattern, { timeout: 15000 });
+  await expect(page2).toHaveURL(endUrlPattern, { timeout: 15000 });
+
+  // 3. Host clicks Next Round
+  const nextRoundButton = page1.getByRole('button', { name: /Next Round/i });
+  await expect(nextRoundButton).toBeVisible();
+  await nextRoundButton.click();
+
+  // 4. Verify redirect back to game
+  const gameUrlPattern = new RegExp('game/' + gameCode, 'i');
+  await expect(page1).toHaveURL(gameUrlPattern, { timeout: 15000 });
+  await expect(page2).toHaveURL(gameUrlPattern, { timeout: 15000 });
+
+  // 5. Verify initial peek modal is back
+  await expect(page1.getByText('Your Bottom Cards')).toBeVisible({ timeout: 10000 });
+  await expect(page2.getByText('Your Bottom Cards')).toBeVisible({ timeout: 10000 });
+
+  await context1.close();
+  await context2.close();
+});
