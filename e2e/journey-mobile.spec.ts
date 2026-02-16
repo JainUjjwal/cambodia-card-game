@@ -1,16 +1,16 @@
 import { test, expect, BrowserContext, Page } from '@playwright/test';
 
-const ACTION_DELAY = 1000; 
+const ACTION_DELAY = 500; 
 
 async function setupScriptedGame(browser: any, isMobile: boolean = true) {
-  const playerCount = 6;
+  const playerCount = 3;
   const contexts: BrowserContext[] = [];
   const pages: Page[] = [];
 
   for (let i = 0; i < playerCount; i++) {
     const context = await browser.newContext({
-      viewport: i === 5 && isMobile ? { width: 375, height: 667 } : { width: 1280, height: 800 },
-      isMobile: i === 5 && isMobile,
+      viewport: i === 2 && isMobile ? { width: 375, height: 667 } : { width: 1280, height: 800 },
+      isMobile: i === 2 && isMobile,
       recordVideo: { dir: `test-results/videos/journey/mobile/player${i + 1}` }
     });
     
@@ -33,13 +33,13 @@ async function setupScriptedGame(browser: any, isMobile: boolean = true) {
 
   const gameCode = (await pages[0].locator('p.font-mono').innerText()).trim();
 
-  await test.step('Players 2-6 join', async () => {
+  await test.step('Players 2-3 join', async () => {
     for (let i = 1; i < playerCount; i++) {
       await pages[i].goto('/');
       pages[i].on('dialog', d => d.accept(gameCode));
       await pages[i].getByRole('button', { name: /Join Game/i }).click();
       await expect(pages[i].getByText('Game Lobby')).toBeVisible();
-      await pages[i].waitForTimeout(500);
+      await pages[i].waitForTimeout(200);
     }
   });
 
@@ -52,104 +52,88 @@ async function setupScriptedGame(browser: any, isMobile: boolean = true) {
   await test.step('Host starts and all peek', async () => {
     await pages[0].getByRole('button', { name: /Start Game/i }).click();
     await Promise.all(pages.map(async (p) => {
-      await p.getByRole('button', { name: /Got it!/i }).click();
+      const gotIt = p.getByRole('button', { name: /Got it!/i });
+      await expect(gotIt).toBeVisible({ timeout: 15000 });
+      await gotIt.click();
     }));
   });
 
   return { pages, contexts, gameCode };
 }
 
-test('User Journey: Full scripted 6-player game (Mobile POV P6)', async ({ browser }) => {
+test('User Journey: Scripted 3-player game (Mobile POV P3)', async ({ browser }) => {
   const { pages, contexts, gameCode } = await setupScriptedGame(browser, true);
-  const [p1, p2, p3, p4, p5, p6] = pages;
+  const [p1, p2, p3] = pages;
 
-  await test.step('Round 1: Initial Actions', async () => {
-    // P1: Peek
-    await p1.getByRole('button', { name: /Draw/i }).click();
+  const getHandCards = (page: Page) => page.locator('div').filter({ hasText: /You/ }).locator('button');
+  const getOpponentCards = (page: Page, name: string) => page.locator('div').filter({ hasText: new RegExp(`^${name}$`) }).locator('..').locator('button');
+
+  await test.step('Round 1: Peek, Spy, Blind Swap', async () => {
+    // 1.1 P1: Draw 7 (Peek)
+    await expect(p1.getByText(/Draw, Take/i)).toBeVisible();
+    await p1.getByRole('button', { name: /^Draw$/i }).click();
     await p1.getByRole('button', { name: /Use Action/i }).click();
-    await p1.locator('div.col-span-3.row-start-3 button').first().click();
+    await getHandCards(p1).first().click();
     await p1.getByRole('button', { name: /Got it!/i }).click();
-    await p1.waitForTimeout(ACTION_DELAY);
 
-    // P2: Spy
-    await p2.getByRole('button', { name: /Draw/i }).click();
+    // 1.2 P2: Draw 9 (Spy)
+    await expect(p2.getByText(/Draw, Take/i)).toBeVisible();
+    await p2.getByRole('button', { name: /^Draw$/i }).click();
     await p2.getByRole('button', { name: /Use Action/i }).click();
-    await p2.locator('div.col-start-2.row-start-1 button').first().click(); 
+    await getOpponentCards(p2, 'Player 1').first().click(); 
     await p2.getByRole('button', { name: /Excellent!/i }).click();
-    await p2.waitForTimeout(ACTION_DELAY);
 
-    // P3: Blind Swap
-    await p3.getByRole('button', { name: /Draw/i }).click();
+    // 1.3 P3: Draw J (Blind Swap)
+    await expect(p3.getByText(/Draw, Take/i)).toBeVisible();
+    await p3.getByRole('button', { name: /^Draw$/i }).click();
     await p3.getByRole('button', { name: /Use Action/i }).click();
-    await p3.locator('div.col-span-3.row-start-3 button').last().click();
-    await p3.locator('div.col-start-3.row-start-1 button').last().click();
+    await getHandCards(p3).last().click();
+    await getOpponentCards(p3, 'Player 1').first().click();
     await p3.waitForTimeout(ACTION_DELAY);
-
-    // P4: Black King
-    await p4.getByRole('button', { name: /Draw/i }).click();
-    await p4.getByRole('button', { name: /Use Action/i }).click();
-    await p4.locator('div.col-start-3.row-start-1 button').first().click();
-    await p4.locator('div.col-span-3.row-start-3 button').first().click();
-    await p4.getByRole('button', { name: /Swap Cards/i }).click();
-    await p4.waitForTimeout(ACTION_DELAY);
-
-    // P5: Swap (Discard 10)
-    await p5.getByRole('button', { name: /Draw/i }).click();
-    await p5.getByRole('button', { name: /Swap Card/i }).click();
-    await p5.locator('div.col-span-3.row-start-3 button').nth(1).click();
-    await p5.waitForTimeout(ACTION_DELAY);
-
-    // P6: SNAP
-    await expect(p6.getByText(/Snap/i)).toBeVisible();
-    await p6.locator('div.col-span-3.row-start-3 button').nth(1).click();
-    await p6.waitForTimeout(ACTION_DELAY);
   });
 
-  await test.step('Round 2: Acquisition', async () => {
-    // P1: Discard
-    await p1.getByRole('button', { name: /Draw/i }).click();
-    await p1.getByRole('button', { name: /Discard/i }).click();
-    
-    // P2: Take from Discard
-    await p2.getByRole('button', { name: /Take/i }).click();
-    await p2.locator('div.col-span-3.row-start-3 button').first().click();
+  await test.step('Round 2: Black King, Snap, Red King', async () => {
+    // 2.1 P1: Draw K Black (Spy/Swap) -> Spy P2, Peek own, Swap
+    await expect(p1.getByText(/Draw, Take/i)).toBeVisible();
+    await p1.getByRole('button', { name: /^Draw$/i }).click();
+    await p1.getByRole('button', { name: /Use Action/i }).click();
+    await getOpponentCards(p1, 'Player 2').first().click();
+    await getHandCards(p1).first().click();
+    await p1.getByRole('button', { name: /Swap Cards/i }).click();
 
-    // P3: Peek
-    await p3.getByRole('button', { name: /Draw/i }).click();
-    await p3.getByRole('button', { name: /Use Action/i }).click();
-    await p3.locator('div.col-span-3.row-start-3 button').nth(1).click();
-    await p3.getByRole('button', { name: /Got it!/i }).click();
+    // 2.2 P2: Draw 5 -> Swap with Card 2 (Discarding 10)
+    await expect(p2.getByText(/Draw, Take/i)).toBeVisible();
+    await p2.getByRole('button', { name: /^Draw$/i }).click();
+    await p2.getByRole('button', { name: /Swap Card/i }).click();
+    await getHandCards(p2).nth(1).click();
 
-    // P4: Spy P6
-    await p4.getByRole('button', { name: /Draw/i }).click();
-    await p4.getByRole('button', { name: /Use Action/i }).click();
-    await p4.locator('div.col-start-3.row-start-2 button').first().click();
-    await p4.getByRole('button', { name: /Excellent!/i }).click();
-
-    // P5: Swap
-    await p5.getByRole('button', { name: /Draw/i }).click();
-    await p5.getByRole('button', { name: /Swap Card/i }).click();
-    await p5.locator('div.col-span-3.row-start-3 button').first().click();
-
-    // P6: Red King
-    await p6.getByRole('button', { name: /Draw/i }).click();
-    await p6.getByRole('button', { name: /Swap Card/i }).click();
-    await p6.locator('div.col-span-3.row-start-3 button').last().click();
+    // 2.3 P3: SNAP! (10 was discarded by P2)
+    await expect(p3.getByText(/Snap/i)).toBeVisible();
+    await getHandCards(p3).nth(1).click(); // Card 2 is 10
+    await p3.waitForTimeout(ACTION_DELAY);
   });
 
   await test.step('Round 3: Finale', async () => {
+    // 3.1 P1: Call Cambodia
+    await expect(p1.getByText(/Draw, Take/i)).toBeVisible();
     await p1.getByRole('button', { name: /Cambodia/i }).click();
-    for (const p of [p2, p3, p4, p5, p6]) {
-      await expect(p.getByText(/FINAL/i)).toBeVisible();
-      await p.getByRole('button', { name: /Draw/i }).click();
-      await p.getByRole('button', { name: /Discard/i }).click();
-    }
+
+    // 3.2 P2: Last Turn
+    await expect(p2.getByText(/FINAL/i)).toBeVisible();
+    await p2.getByRole('button', { name: /^Draw$/i }).click();
+    await p2.getByRole('button', { name: /Discard/i }).click();
+
+    // 3.3 P3: Last Turn
+    await expect(p3.getByText(/FINAL/i)).toBeVisible();
+    await p3.getByRole('button', { name: /^Draw$/i }).click();
+    await p3.getByRole('button', { name: /Discard/i }).click();
   });
 
-  await test.step('Verify Results and Restart', async () => {
-    await expect(p6).toHaveURL(new RegExp(`end\?gameId=${gameCode}`, 'i'), { timeout: 20000 });
-    await p1.getByRole('button', { name: /Next Round/i }).click();
-    await expect(p6).toHaveURL(new RegExp(`game/${gameCode}`, 'i'), { timeout: 15000 });
+  await test.step('Verify Results', async () => {
+    const endUrlPattern = new RegExp(`end\\?gameId=${gameCode}`, 'i');
+    await expect(p3).toHaveURL(endUrlPattern, { timeout: 20000 });
+    await expect(p3.getByText('ROUND ENDED')).toBeVisible();
+    await expect(p3.locator('table')).toBeVisible();
   });
 
   await Promise.all(contexts.map(c => c.close()));

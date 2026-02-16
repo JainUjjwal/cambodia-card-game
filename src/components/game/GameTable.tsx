@@ -204,12 +204,13 @@ export const GameTable = ({
           <div className={`md:col-span-3 md:row-start-3 self-center md:self-end flex flex-col items-center gap-1 md:gap-2 p-2 rounded-2xl transition-all duration-300 ${isMyTurn ? 'bg-yellow-500/20 ring-2 ring-yellow-400' : 'bg-slate-800/30'}`}>
               <div className="flex justify-center gap-1.5 sm:gap-4">
                 {me?.hand.map((card: CardData, index: number) => {
+                  const hasActiveAction = isPeeking || isSpying || isSwapping || isBlindSwapping || isSpySwapping;
                   const canClick = isMyTurn && (
                     isPeeking || 
                     isSwapping ||
                     (isBlindSwapping && blindSwapOwnIndex === null) ||
                     (isSpySwapping && spySwapStep === 'own') ||
-                    (!drawnCard && !isPeeking && !isSwapping && !isBlindSwapping && !isSpySwapping) // Snap
+                    (!drawnCard && !hasActiveAction) // Snap
                   );
 
                   return (
@@ -221,7 +222,7 @@ export const GameTable = ({
                         else if (isPeeking) onPeekCardSelect(index);
                         else if (isBlindSwapping && blindSwapOwnIndex === null) onBlindSwapCardSelect(currentUser?.uid || '', index);
                         else if (isSpySwapping && spySwapStep === 'own') onSpySwapCardSelect(currentUser?.uid || '', index);
-                        else if (!drawnCard) onSnapCardSelect(index);
+                        else if (!drawnCard && !hasActiveAction) onSnapCardSelect(index);
                       }}
                       className="disabled:cursor-not-allowed transform hover:scale-110 active:scale-95 transition-all"
                     >
