@@ -19,6 +19,8 @@ service cloud.firestore {
         (request.auth.uid in resource.data.players && request.resource.data.players[request.auth.uid].isReady != resource.data.players[request.auth.uid].isReady && request.resource.data.players.size() == resource.data.players.size()) ||
         // Condition for HOST TO START THE GAME
         (request.auth.uid == resource.data.hostId && resource.data.status == 'waiting' && request.resource.data.status == 'in-progress') ||
+        // Condition for HOST TO RESTART THE GAME
+        (request.auth.uid == resource.data.hostId && (resource.data.status == 'round-ended' || resource.data.status == 'finished') && request.resource.data.status == 'in-progress') ||
         // Condition to UPDATE OWN PEEK STATUS
         (request.auth.uid in resource.data.players && resource.data.players[request.auth.uid].hasPeekedInitial == false && request.resource.data.players[request.auth.uid].hasPeekedInitial == true) ||
         
