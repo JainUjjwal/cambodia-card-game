@@ -1,6 +1,7 @@
 import React from 'react';
 import { type DocumentData } from 'firebase/firestore';
 import { type User } from 'firebase/auth';
+import { List } from 'lucide-react';
 import Card from './Card';
 import Opponent from './Opponent';
 import InitialPeekModal from './InitialPeekModal';
@@ -8,6 +9,7 @@ import DrawCardModal from './DrawCardModal';
 import PeekResultModal from './PeekResultModal';
 import SpyResultModal from './SpyResultModal';
 import SpySwapModal from './SpySwapModal';
+import ScoreboardModal from './ScoreboardModal';
 import { type CardData } from '../../utils/deck';
 
 // Define the props for the GameTable component
@@ -46,6 +48,8 @@ export type GameTableProps = {
   onSpySwapComplete: (shouldSwap: boolean) => void;
   onSnapCardSelect: (cardIndex: number) => void;
   onCallCambodia: () => void;
+  showScoreboard: boolean;
+  onToggleScoreboard: () => void;
 };
 
 export const GameTable = ({
@@ -83,6 +87,8 @@ export const GameTable = ({
   onSpySwapComplete,
   onSnapCardSelect,
   onCallCambodia,
+  showScoreboard,
+  onToggleScoreboard,
 }: GameTableProps) => {
 
   const opponents = gameData.playOrder
@@ -190,6 +196,13 @@ export const GameTable = ({
               <p className="font-semibold text-lg">{getInstructionalText()}</p>
             </div>
             <div className="flex flex-wrap justify-center gap-2 sm:gap-4">
+              <button 
+                onClick={onToggleScoreboard}
+                className="bg-slate-700 hover:bg-slate-600 text-white p-2 rounded-lg transition-colors shadow-lg"
+                title="View Scoreboard"
+              >
+                <List size={24} />
+              </button>
               <button onClick={onDrawCard} disabled={!isMyTurn || isSwapping || isPeeking || isSpying || isBlindSwapping || isSpySwapping || drawnCard} className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-6 rounded-lg disabled:bg-slate-600 disabled:cursor-not-allowed">
                 Draw Card
               </button>
@@ -231,6 +244,13 @@ export const GameTable = ({
             opponentName={spySwapResult.opponentName}
             onSwap={() => onSpySwapComplete(true)}
             onKeep={() => onSpySwapComplete(false)}
+          />
+        )}
+        {showScoreboard && (
+          <ScoreboardModal 
+            players={gameData.playOrder.map((id: string) => ({ id, ...gameData.players[id] }))}
+            roundHistory={gameData.roundHistory || []}
+            onClose={onToggleScoreboard}
           />
         )}
     </div>

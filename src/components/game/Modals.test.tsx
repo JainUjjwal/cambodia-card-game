@@ -5,9 +5,38 @@ import InitialPeekModal from './InitialPeekModal';
 import PeekResultModal from './PeekResultModal';
 import SpyResultModal from './SpyResultModal';
 import SpySwapModal from './SpySwapModal';
+import ScoreboardModal from './ScoreboardModal';
 import { CardData } from '../../utils/deck';
 
 describe('Modals', () => {
+  describe('ScoreboardModal', () => {
+    const mockPlayers = [
+      { id: 'p1', name: 'Player 1', score: 10 },
+      { id: 'p2', name: 'Player 2', score: 20 },
+    ];
+    const mockHistory = [
+      { round: 1, scores: { 'p1': 10, 'p2': 20 }, callerId: 'p1' }
+    ];
+
+    it('should render player names and scores', () => {
+      render(<ScoreboardModal players={mockPlayers} roundHistory={mockHistory} onClose={vi.fn()} />);
+      expect(screen.getByText('Player 1')).toBeInTheDocument();
+      expect(screen.getByText('Player 2')).toBeInTheDocument();
+      // Should find "10" twice (round 1 and total)
+      expect(screen.getAllByText('10')).toHaveLength(2);
+      // Should find "20" twice
+      expect(screen.getAllByText('20')).toHaveLength(2);
+    });
+
+    it('should call onClose when close button clicked', () => {
+      const onClose = vi.fn();
+      const { container } = render(<ScoreboardModal players={mockPlayers} roundHistory={mockHistory} onClose={onClose} />);
+      const closeButton = container.querySelector('button'); // The first button is the X button
+      fireEvent.click(closeButton!);
+      expect(onClose).toHaveBeenCalled();
+    });
+  });
+
   describe('SpySwapModal', () => {
     const mockOpponentCard: CardData = { value: '9', suit: '♠', points: 9, knownBy: [] };
     const mockOwnCard: CardData = { value: '2', suit: '♥', points: 2, knownBy: [] };

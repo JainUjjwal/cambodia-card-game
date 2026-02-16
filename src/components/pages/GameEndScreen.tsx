@@ -107,11 +107,26 @@ const GameEndScreen = () => {
                   <td className="px-4 py-3 whitespace-nowrap font-medium text-slate-300 text-left">
                     {index + 1}
                   </td>
-                  {players.map(p => (
-                    <td key={p.id} className="px-4 py-3 whitespace-nowrap text-center text-slate-200">
-                      {round.scores[p.id]}
-                    </td>
-                  ))}
+                  {players.map(p => {
+                    const isCaller = round.callerId === p.id;
+                    const score = round.scores[p.id];
+                    const isSuccess = isCaller && score === 0;
+                    
+                    return (
+                      <td key={p.id} className={`px-4 py-3 whitespace-nowrap text-center text-slate-200 ${isCaller ? 'bg-white/5' : ''}`}>
+                        <div className="flex flex-col items-center">
+                          <span className={`${isCaller ? (isSuccess ? 'text-green-400 font-bold' : 'text-red-400 font-bold') : ''}`}>
+                            {score}
+                          </span>
+                          {isCaller && (
+                            <span className="text-[10px] uppercase opacity-75">
+                              {isSuccess ? '✓ Call' : '✗ Call'}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>

@@ -76,6 +76,8 @@ describe('GameTable Component', () => {
     onSpySwapComplete: vi.fn(),
     onSnapCardSelect: vi.fn(),
     onCallCambodia: vi.fn(),
+    showScoreboard: false,
+    onToggleScoreboard: vi.fn(),
   };
 
   it('should display correct instruction when it is my turn', () => {
@@ -106,6 +108,18 @@ describe('GameTable Component', () => {
     const button = screen.getByText('Call Cambodia');
     fireEvent.click(button);
     expect(defaultProps.onCallCambodia).toHaveBeenCalled();
+  });
+
+  it('should call onToggleScoreboard when list button is clicked', () => {
+    render(<GameTable {...defaultProps} />);
+    const button = screen.getByTitle('View Scoreboard');
+    fireEvent.click(button);
+    expect(defaultProps.onToggleScoreboard).toHaveBeenCalled();
+  });
+
+  it('should render ScoreboardModal when showScoreboard is true', () => {
+    render(<GameTable {...defaultProps} showScoreboard={true} />);
+    expect(screen.getByText('Scoreboard')).toBeInTheDocument();
   });
 
   it('should display correct instruction when it is not my turn', () => {

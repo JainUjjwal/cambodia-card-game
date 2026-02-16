@@ -51,6 +51,9 @@ export const GamePage = () => {
   const [spySwapOwnIndex, setSpySwapOwnIndex] = useState<number | null>(null);
   const [spySwapResult, setSpySwapResult] = useState<{ opponentCard: CardData; ownCard: CardData; opponentName: string } | null>(null);
 
+  // State for scoreboard visibility
+  const [showScoreboard, setShowScoreboard] = useState(false);
+
 
   useEffect(() => {
     if (!shortId || !currentUser) return;
@@ -497,6 +500,8 @@ export const GamePage = () => {
       onSpySwapComplete={handleSpySwapComplete}
       onSnapCardSelect={handleSnapCardSelect}
       onCallCambodia={handleCallCambodia}
+      showScoreboard={showScoreboard}
+      onToggleScoreboard={() => setShowScoreboard(!showScoreboard)}
     />
   );
 };
