@@ -74,11 +74,12 @@ describe('GameTable Component', () => {
     onSpySwapCardSelect: vi.fn(),
     spySwapResult: null,
     onSpySwapComplete: vi.fn(),
+    onSnapCardSelect: vi.fn(),
   };
 
   it('should display correct instruction when it is my turn', () => {
     render(<GameTable {...defaultProps} />);
-    expect(screen.getByText('Your turn. Draw a card or take from the discard pile.')).toBeInTheDocument();
+    expect(screen.getByText('Your turn. Draw, Take from Discard, or Snap a matching card.')).toBeInTheDocument();
   });
 
   it('should display correct instruction when it is not my turn', () => {
@@ -141,6 +142,15 @@ describe('GameTable Component', () => {
     );
     fireEvent.click(myCard!);
     expect(defaultProps.onSpySwapCardSelect).toHaveBeenCalledWith('me', 0);
+  });
+
+  it('should call onSnapCardSelect when my card is clicked at start of turn', () => {
+    render(<GameTable {...defaultProps} />);
+    const handCardButtons = screen.getAllByRole('button').filter(b => 
+      !b.hasAttribute('disabled') && b.textContent === 'hidden' && b.closest('div.col-span-3.row-start-3')
+    );
+    fireEvent.click(handCardButtons[0]);
+    expect(defaultProps.onSnapCardSelect).toHaveBeenCalledWith(0);
   });
 
   it('should call onBlindSwapCardSelect when my card is clicked during phase 1', () => {
