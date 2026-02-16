@@ -44,7 +44,7 @@ async function setupGame(browser: any) {
   await expect(gotIt2).toBeVisible({ timeout: 10000 });
   await gotIt2.click();
 
-  return { page1, page2, context1, context2 };
+  return { page1, page2, context1, context2, gameCode };
 }
 
 test('basic turn flow: draw and discard', async ({ browser }) => {
@@ -75,7 +75,6 @@ test('basic turn flow: take from discard and swap', async ({ browser }) => {
   // Player 1 turn - Take from discard
   // First we need to know what's in discard to click the button
   const takeButton = page1.locator('button', { hasText: 'Take' });
-  const discardText = await takeButton.innerText(); // e.g., "Take 5♣"
   await takeButton.click();
 
   // Instruction should change
@@ -111,6 +110,71 @@ test('basic turn flow: full turn cycle between two players', async ({ browser })
   await expect(page1.getByText('Your turn')).toBeVisible();
 
   // Cleanup
+  await context1.close();
+  await context2.close();
+});
+
+test('basic turn flow: snap option visibility', async ({ browser }) => {
+  const { page1, page2, context1, context2 } = await setupGame(browser);
+
+  // Verify instructional text includes Snap
+  await expect(page1.getByText(/Snap/i)).toBeVisible();
+  
+  // Verify cards in hand are enabled at start of turn
+  const handCards = page1.locator('div.col-span-3.row-start-3 button');
+  const count = await handCards.count();
+  for (let i = 0; i < count; i++) {
+    await expect(handCards.nth(i)).toBeEnabled();
+  }
+
+  await context1.close();
+  await context2.close();
+});
+
+test('basic turn flow: call cambodia', async ({ browser }) => {
+  const { page1, page2, context1, context2 } = await setupGame(browser);
+
+  // Player 1 calls Cambodia
+  await page1.getByRole('button', { name: /Call Cambodia/i }).click();
+
+  // Banner should appear on both screens
+  await expect(page1.getByText(/CAMBODIA CALLED BY PLAYER 1/i)).toBeVisible();
+  await expect(page2.getByText(/CAMBODIA CALLED BY PLAYER 1/i)).toBeVisible();
+
+  // Instruction for Player 2 should be final turn
+  await expect(page2.getByText(/FINAL TURN!/i)).toBeVisible({ timeout: 10000 });
+  // In our GameTable logic, when Cambodia is active, "Your turn" text is replaced by "FINAL TURN!"
+  // so we check for that instead of 'Your turn'.
+  await expect(page2.getByText(/Make your last move/i)).toBeVisible();
+
+  await context1.close();
+  await context2.close();
+});
+
+test('scoring flow: full round end after Cambodia call', async ({ browser }) => {
+  const { page1, page2, context1, context2, gameCode } = await setupGame(browser);
+
+  // 1. Player 1 calls Cambodia
+  await page1.getByRole('button', { name: /Call Cambodia/i }).click();
+  
+  // 2. Player 2 takes final turn (Draw and Discard)
+  await expect(page2.getByText(/FINAL TURN!/i)).toBeVisible();
+  await page2.getByRole('button', { name: /Draw Card/i }).click();
+  await page2.getByRole('button', { name: /Discard/i }).click();
+
+  // 3. Both should be redirected to /end
+  const endUrlPattern = new RegExp(`end\\?gameId=${gameCode}`, 'i');
+  await expect(page1).toHaveURL(endUrlPattern, { timeout: 15000 });
+  await expect(page2).toHaveURL(endUrlPattern, { timeout: 15000 });
+
+  // 4. Verify score table is visible on end screen
+  await expect(page1.getByText('ROUND ENDED')).toBeVisible();
+  await expect(page1.locator('table')).toBeVisible();
+  
+  // Total row should have scores
+  const totals = page1.locator('tfoot tr td');
+  await expect(totals).toHaveCount(2);
+
   await context1.close();
   await context2.close();
 });
